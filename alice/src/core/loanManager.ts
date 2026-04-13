@@ -1,0 +1,299 @@
+import { Loan, LoanStatus, LoanTerms, LoanApplication, LoanDecision } from '../types';
+import { CONSTITUTION, getInterestTier } from '../constitution/rules';
+import { computeCreditScore } from './creditScoring';
+import { getTreasury, deployCapital, returnCapital, writeOffCapital, recordInterest, getRiskMetrics } from './treasury';
+import { transferUSDC } from '../locus/adapter';
+import { auditLog } from '../locus/audit';
+import { logger } from '../utils/logger';
+import { generateLoanId, serializeBigInts } from '../utils/crypto';
+import { calculateInterest, nowTimestamp, daysToMs, formatUSDC } from '../utils/math';
+
+// In-memory loan store
+const loans: Map<string, Loan> = new Map();
+
+// Simple async mutex
+let _lockPromise: Promise<void> = Promise.resolve();
+function acquireLock(): Promise<() => void> {
+  let release: () => void;
+  const prev = _lockPromise;
+  _lockPromise = new Promise<void>((resolve) => { release = resolve; });
+  return prev.then(() => release!);
+}
+
+export function getActiveLoans(): Loan[] {
+  return [...loans.values()].filter(
+    (l) => l.status === LoanStatus.ACTIVE || l.status === LoanStatus.REPAYING
+  );
+}
+
+export function getAllLoans(): Loan[] {
+  return [...loans.values()];
+}
+
+export function getLoan(loanId: string): Loan | undefined {
+  return loans.get(loanId);
+}
+
+export function getDefaultedLoans(): Loan[] {
+  return [...loans.values()].filter((l) => l.status === LoanStatus.DEFAULTED);
+}
+
+export function getCompletedLoans(): Loan[] {
+  return [...loans.values()].filter((l) => l.status === LoanStatus.COMPLETED);
+}
+
+export function getBorrowerDebt(agentId: number): bigint {
+  let total = BigInt(0);
+  for (const loan of getActiveLoans()) {
+    if (loan.borrowerAgentId === agentId) {
+      total += loan.terms.totalRepayment - loan.amountRepaid;
+    }
+  }
+  return total;
+}
+
+export async function processLoanApplication(app: LoanApplication): Promise<LoanDecision> {
+  const release = await acquireLock();
+  try {
+    return await _processLoanApplication(app);
+  } finally {
+    release();
+  }
+}
+
+async function _processLoanApplication(app: LoanApplication): Promise<LoanDecision> {
+  await logger.info('loan.application.received', {
+    agentId: app.agentId,
+    amount: app.requestedAmount.toString(),
+    purpose: app.purpose,
+    termDays: app.proposedTermDays,
+  });
+
+  // 1. Compute credit score via Locus wrapped APIs
+  const existingDebt = getBorrowerDebt(app.agentId);
+  const creditResult = await computeCreditScore(app.agentId, app.agentWallet, existingDebt);
+  const creditScore = creditResult.score.totalScore;
+
+  // 2. Check lending halt
+  const metrics = getRiskMetrics();
+  if (metrics.lendingHalted) {
+    return {
+      approved: false,
+      rejectionReason: `Lending halted: ${metrics.haltReason}`,
+      creditScore,
+    };
+  }
+
+  // 3. Check minimum credit score
+  if (creditScore < CONSTITUTION.minCreditScore) {
+    await logger.info('loan.rejected.low_score', { agentId: app.agentId, score: creditScore });
+    await auditLog('loan.rejected', { agentId: app.agentId, reason: 'low_credit_score', score: creditScore });
+    return {
+      approved: false,
+      rejectionReason: `Credit score ${creditScore} is below minimum ${CONSTITUTION.minCreditScore}. ${creditResult.score.reasoning}`,
+      creditScore,
+    };
+  }
+
+  // 4. Get interest tier
+  const tier = getInterestTier(creditScore);
+  if (!tier) {
+    return {
+      approved: false,
+      rejectionReason: `No interest tier matches score ${creditScore}`,
+      creditScore,
+    };
+  }
+
+  // 5. Check term limit
+  const termDays = Math.min(app.proposedTermDays, CONSTITUTION.maxTermDays);
+
+  // 6. Check constitutional limits
+  const treasury = getTreasury();
+
+  if (treasury.totalReserves === BigInt(0)) {
+    return {
+      approved: false,
+      rejectionReason: 'Treasury is empty — no capital available for lending',
+      creditScore,
+    };
+  }
+
+  const maxLoanAmount = (treasury.totalReserves * BigInt(tier.maxLoanPctOfReserves)) / BigInt(100);
+
+  if (app.requestedAmount > maxLoanAmount) {
+    return {
+      approved: false,
+      rejectionReason: `Requested ${formatUSDC(app.requestedAmount)} exceeds max ${formatUSDC(maxLoanAmount)} for your credit tier`,
+      creditScore,
+    };
+  }
+
+  // 7. Check reserve ratio
+  const projectedDeployed = treasury.deployedCapital + app.requestedAmount;
+  const projectedRatio = Number(
+    ((treasury.totalReserves - projectedDeployed) * BigInt(10000)) / treasury.totalReserves
+  ) / 100;
+
+  if (projectedRatio < CONSTITUTION.minReserveRatioPct) {
+    return {
+      approved: false,
+      rejectionReason: `Loan would breach reserve ratio (projected ${projectedRatio.toFixed(1)}% < min ${CONSTITUTION.minReserveRatioPct}%)`,
+      creditScore,
+    };
+  }
+
+  // 8. Check concentration
+  const borrowerLoans = getActiveLoans().filter((l) => l.borrowerAgentId === app.agentId);
+  const borrowerExposure = borrowerLoans.reduce((sum, l) => sum + l.terms.principalAmount, BigInt(0));
+  const maxConcentration = (treasury.totalReserves * BigInt(CONSTITUTION.maxConcentrationPct)) / BigInt(100);
+
+  if (borrowerExposure + app.requestedAmount > maxConcentration) {
+    return {
+      approved: false,
+      rejectionReason: `Would exceed concentration limit (${CONSTITUTION.maxConcentrationPct}% of reserves)`,
+      creditScore,
+    };
+  }
+
+  // 9. Compute terms
+  const interest = calculateInterest(app.requestedAmount, tier.aprPercent, termDays);
+  const totalRepayment = app.requestedAmount + interest;
+
+  const terms: LoanTerms = {
+    principalAmount: app.requestedAmount,
+    interestRateAPR: tier.aprPercent,
+    termDays,
+    totalRepayment,
+    creditScoreAtOrigination: creditScore,
+  };
+
+  // 10. Transfer USDC via Locus
+  const now = nowTimestamp();
+  const maturityTimestamp = now + Math.floor(daysToMs(termDays) / 1000);
+
+  let txId: string;
+  try {
+    txId = await transferUSDC(
+      app.agentWallet,
+      app.requestedAmount,
+      `LetAliceLead Loan: ${formatUSDC(app.requestedAmount)} @ ${tier.aprPercent}% APR for ${termDays}d to agent #${app.agentId}`
+    );
+  } catch (err) {
+    await logger.error('loan.funding.failed', { agentId: app.agentId, error: String(err) });
+    return {
+      approved: false,
+      rejectionReason: 'Loan funding transfer failed via Locus',
+      creditScore,
+    };
+  }
+
+  // 11. Record the loan
+  const loan: Loan = {
+    id: generateLoanId(),
+    borrowerAgentId: app.agentId,
+    borrowerWallet: app.agentWallet,
+    terms,
+    purpose: app.purpose,
+    status: LoanStatus.ACTIVE,
+    locusTxId: txId,
+    originatedAt: now,
+    maturityAt: maturityTimestamp,
+    amountRepaid: BigInt(0),
+    repaymentHistory: [],
+    riskScore: 100 - creditScore,
+    lastRiskCheck: now,
+  };
+
+  loans.set(loan.id, loan);
+  deployCapital(app.requestedAmount);
+
+  await auditLog('loan.originated', {
+    loanId: loan.id,
+    agentId: app.agentId,
+    principal: app.requestedAmount.toString(),
+    apr: tier.aprPercent,
+    termDays,
+    totalRepayment: totalRepayment.toString(),
+    locusTxId: txId,
+    reasoning: creditResult.score.reasoning,
+  });
+
+  await logger.info('loan.originated', {
+    loanId: loan.id,
+    agentId: app.agentId,
+    amount: formatUSDC(app.requestedAmount),
+    apr: `${tier.aprPercent}%`,
+    term: `${termDays}d`,
+  });
+
+  return {
+    approved: true,
+    loan,
+    creditScore,
+    offeredTerms: terms,
+  };
+}
+
+export async function processRepayment(loanId: string, amount: bigint, txHash: string): Promise<Loan> {
+  const loan = loans.get(loanId);
+  if (!loan) throw new Error(`Loan ${loanId} not found`);
+  if (loan.status === LoanStatus.COMPLETED || loan.status === LoanStatus.DEFAULTED) {
+    throw new Error(`Loan ${loanId} is already ${loan.status}`);
+  }
+
+  loan.amountRepaid += amount;
+  loan.repaymentHistory.push({
+    amount,
+    timestamp: nowTimestamp(),
+    txHash,
+  });
+  loan.status = LoanStatus.REPAYING;
+
+  await logger.info('loan.repayment', {
+    loanId,
+    amount: formatUSDC(amount),
+    totalRepaid: formatUSDC(loan.amountRepaid),
+    remaining: formatUSDC(loan.terms.totalRepayment - loan.amountRepaid),
+  });
+
+  if (loan.amountRepaid >= loan.terms.totalRepayment) {
+    loan.status = LoanStatus.COMPLETED;
+    returnCapital(loan.terms.principalAmount);
+    const interestEarned = loan.amountRepaid - loan.terms.principalAmount;
+    recordInterest(interestEarned);
+
+    await auditLog('loan.completed', {
+      loanId,
+      agentId: loan.borrowerAgentId,
+      principal: loan.terms.principalAmount.toString(),
+      interestEarned: interestEarned.toString(),
+    });
+
+    await logger.info('loan.completed', { loanId, agentId: loan.borrowerAgentId });
+  }
+
+  return loan;
+}
+
+export async function processDefault(loanId: string): Promise<void> {
+  const loan = loans.get(loanId);
+  if (!loan) return;
+
+  loan.status = LoanStatus.DEFAULTED;
+  const outstanding = loan.terms.totalRepayment - loan.amountRepaid;
+  writeOffCapital(loan.terms.principalAmount);
+
+  await auditLog('loan.defaulted', {
+    loanId,
+    agentId: loan.borrowerAgentId,
+    outstanding: outstanding.toString(),
+    principal: loan.terms.principalAmount.toString(),
+  });
+
+  await logger.warn('loan.defaulted', {
+    loanId,
+    agentId: loan.borrowerAgentId,
+    outstanding: formatUSDC(outstanding),
+  });
+}
