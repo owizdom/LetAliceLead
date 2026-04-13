@@ -33,7 +33,7 @@ export async function fetchIdentityData(agentId: number, agentWallet: string): P
         }
       ),
       // CoinGecko for market context (demonstrates breadth of API usage)
-      wrappedCall<{ usd?: number }>('coingecko', 'price', {
+      wrappedCall<unknown>('coingecko', 'simple-price', {
         ids: 'usd-coin',
         vs_currencies: 'usd',
       }).catch(() => null),
@@ -80,7 +80,7 @@ export async function fetchReputationData(agentId: number, agentWallet: string):
   try {
     const [braveResult, tavilyResult] = await Promise.all([
       wrappedCall<{ web?: { results?: Array<{ title?: string; description?: string }> } }>(
-        'brave-search', 'web', {
+        'brave', 'web-search', {
           q: `"${agentWallet}" OR "agent ${agentId}" transaction history reputation`,
           count: 10,
         }
@@ -157,9 +157,8 @@ export async function fetchFinancialData(
         }
       ),
       // Alpha Vantage for broader financial context (additional provider)
-      wrappedCall<unknown>('alpha-vantage', 'quote', {
+      wrappedCall<unknown>('alphavantage', 'global-quote', {
         symbol: 'USDC',
-        function: 'GLOBAL_QUOTE',
       }).catch(() => null),
     ]);
 

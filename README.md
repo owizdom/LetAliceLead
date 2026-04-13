@@ -2,269 +2,429 @@
 
 # LetAliceLead
 
-**The first autonomous central bank for AI agents.**
+**An autonomous central bank for AI agents that underwrites loans, prices risk, and enforces monetary policy — all through PayWithLocus. You deposit USDC. Agents borrow. Alice manages everything. You earn yield.**
 
-*Alice runs an AI lending business. You keep the profits.*
+Locus Paygentic Hackathon #1 | Week 1: Using PayWithLocus
 
-<br />
-
-[Demo](https://letalice.vercel.app) · [Devfolio](https://paygentic-week1.devfolio.co/) · [PayWithLocus](https://paywithlocus.com)
-
-<br />
-
-Built for **Locus Paygentic Hackathon #1** — Week 1: Using PayWithLocus
+[Dashboard](http://localhost:3000) · [Devfolio](https://paygentic-week1.devfolio.co/) · [PayWithLocus](https://paywithlocus.com)
 
 ---
 
 </div>
 
-<br />
+## What is this?
 
-## The Problem
+Alice is a sovereign AI agent that operates as a central bank for other AI agents on the Locus network. She:
 
-AI agents carry wallets but can't get capital. An agent spots a 40% arbitrage opportunity — it can't borrow a dollar to capture it. A research agent needs $2 of API calls to complete a task — it has no credit line. Meanwhile, your USDC sits in a wallet earning nothing, or you're lending it on Aave at 3% hoping humans show up.
+- **Scores creditworthiness** of borrower agents using 7 Locus wrapped APIs (Exa, Firecrawl, Brave Search, Perplexity, CoinGecko, Tavily, Alpha Vantage) to produce a 0–100 tri-factor credit score
+- **Issues USDC loans** on Base via `POST /api/pay/send` with risk-adjusted interest rates (5–18% APR)
+- **Enforces a constitution** — 20% minimum reserve ratio, 25% max concentration per borrower, 40 minimum credit score, automatic lending halt if defaults exceed 5%
+- **Monitors risk continuously** — every 60 seconds, Alice checks maturity dates, detects late repayments, auto-defaults loans 7 days past due, and adjusts borrower rates autonomously (+2% APR per day late)
+- **Earns yield for depositors** — interest from loans flows back to the reserve; the dashboard shows yield accumulating in real time
+- **Sends loan notifications** via AgentMail — confirmations, reminders, and default notices as real emails
 
-There's no credit market for machines. No underwriting. No risk pricing. No lender of last resort.
+Alice reads her balance from Locus, lends through Locus, verifies repayments through Locus, and scores borrowers through Locus. PayWithLocus isn't bolted on — it's her entire nervous system.
 
-**The AI economy is stuck in the 1600s — productive actors, zero access to liquidity.**
+## Why Alice Cannot Work Without PayWithLocus
 
-Alice fixes this.
+Every core function maps to a Locus primitive:
 
-<br />
+| What Alice does | Locus feature it requires | What happens without it |
+|----------------|--------------------------|------------------------|
+| Check treasury reserves | `GET /api/pay/balance` | Alice doesn't know how much she can lend |
+| Disburse USDC loans | `POST /api/pay/send` | No money moves — loans are just database entries |
+| Verify borrower repayment | `GET /api/pay/transactions` | Alice can't confirm payments, can't close loans |
+| Score agent reputation | `POST /api/wrapped/brave/web-search` | No background checks — blind lending |
+| Score agent on-chain activity | `POST /api/wrapped/firecrawl/scrape` | Can't see wallet history on BaseScan |
+| AI creditworthiness analysis | `POST /api/wrapped/perplexity/chat` | No sentiment analysis, no reasoning |
+| Semantic identity search | `POST /api/wrapped/exa/search` | Can't find agent's web presence |
+| Market context for risk | `POST /api/wrapped/coingecko/simple-price` | Lending blind to market conditions |
+| Enforce spending limits | Locus policy guardrails | No caps on loan sizes |
+| Send loan notifications | `POST /api/x402/agentmail-*` | Borrowers get no confirmations |
 
-## What LetAliceLead Does
+Remove Locus and Alice is a calculator with opinions. With Locus, she's a functioning bank.
 
-Alice is an autonomous AI central bank that evaluates agent borrowers, prices risk, issues USDC loans, and enforces repayment — entirely through [PayWithLocus](https://paywithlocus.com).
-
-You deposit USDC. Agents borrow. You earn **5–18% APR**. No manual management. No trust required.
-
-### Three revenue streams
-
-| Stream | How it works |
-|--------|-------------|
-| **Lending yield** | 5–18% APR on risk-adjusted loans to AI agents |
-| **API arbitrage** | Alice buys Locus wrapped API calls at cost, resells to borrower agents at markup |
-| **Credit reports** | Other agents and platforms pay for Alice's creditworthiness assessments |
-
-<br />
-
-## How It Works
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    LetAliceLead Dashboard                     │
-│              (live yield counter, activity feed)              │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────┴──────────────────────────────────┐
-│                        Alice (Agent)                         │
-│                                                              │
-│   Credit Scoring ──→ Loan Manager ──→ Treasury               │
-│        │                   │              │                   │
-│   10+ Locus APIs      Constitutional   Risk Monitor          │
-│   (Exa, Firecrawl,    Enforcement     (auto-defaults,        │
-│    Brave, Perplexity,  (reserves,      rate adjustment,       │
-│    CoinGecko)          limits, tiers)  halt conditions)       │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-┌──────────────────────────┴──────────────────────────────────┐
-│                      PayWithLocus                            │
-│                                                              │
-│   /api/pay/send         Loan disbursement (USDC on Base)     │
-│   /api/pay/balance      Treasury reserve monitoring          │
-│   /api/pay/transactions Repayment verification               │
-│   /api/wrapped/*        Credit data (10+ providers)          │
-│   /api/x402/agentmail   Loan notifications via email         │
-│   Policy guardrails     Spending limits, approval thresholds │
-└──────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                     Dashboard (Next.js 16)                    │
+│                                                                │
+│   ┌──────────────┐  ┌──────────────┐  ┌────────────────────┐  │
+│   │ Yield Counter │  │ Activity Feed│  │ Monetary Policy    │  │
+│   │ (animated,    │  │ (live, color │  │ Panel              │  │
+│   │  mint green,  │  │  coded by    │  │ - Reserve ratio    │  │
+│   │  real-time)   │  │  action type)│  │ - Default rate     │  │
+│   ├──────────────┤  │              │  │ - Lending status   │  │
+│   │ 4 Stat Cards │  │ Credit scores│  ├────────────────────┤  │
+│   │ Reserves     │  │ Approvals    │  │ Loan Book Table    │  │
+│   │ Deployed     │  │ Denials      │  │ Borrower, APR,     │  │
+│   │ Available    │  │ Repayments   │  │ Score, Status,     │  │
+│   │ Weighted APR │  │ Defaults     │  │ Repayment progress │  │
+│   └──────────────┘  └──────────────┘  └────────────────────┘  │
+│                              │                                  │
+│                     Polls every 3 seconds                       │
+└──────────────────────────────┬─────────────────────────────────┘
+                               │ REST API
+┌──────────────────────────────┴─────────────────────────────────┐
+│                        Alice (Express.js)                       │
+│                                                                  │
+│   ┌─────────────────┐   ┌─────────────────┐   ┌──────────────┐ │
+│   │ Credit Scoring   │   │ Loan Manager     │   │ Treasury     │ │
+│   │                  │   │                  │   │              │ │
+│   │ 7 Locus APIs  ──→│   │ Constitutional ──→│   │ Locus bal ──→│ │
+│   │ LLM inference    │   │ enforcement      │   │ Deploy/return│ │
+│   │ Algorithmic      │   │ Disbursement     │   │ Interest     │ │
+│   │ fallback         │   │ Repayment        │   │ tracking     │ │
+│   │ 0-100 score      │   │ Default handling │   │ Write-offs   │ │
+│   └─────────────────┘   └─────────────────┘   └──────────────┘ │
+│                                                                  │
+│   ┌─────────────────┐   ┌─────────────────┐   ┌──────────────┐ │
+│   │ Risk Monitor     │   │ Constitution     │   │ Audit Log    │ │
+│   │                  │   │                  │   │              │ │
+│   │ 60s cycles       │   │ Reserve ratios   │   │ Every        │ │
+│   │ Late detection   │   │ Interest tiers   │   │ decision     │ │
+│   │ Auto-default     │   │ Lending limits   │   │ recorded     │ │
+│   │ Rate adjustment  │   │ Halt conditions  │   │ with full    │ │
+│   │ Halt triggers    │   │ No overrides     │   │ context      │ │
+│   └─────────────────┘   └─────────────────┘   └──────────────┘ │
+└──────────────────────────────┬─────────────────────────────────┘
+                               │
+┌──────────────────────────────┴─────────────────────────────────┐
+│                        PayWithLocus                              │
+│                  beta-api.paywithlocus.com/api                    │
+│                                                                  │
+│   Payments                    Wrapped APIs (credit scoring)      │
+│   ├── POST /api/pay/send      ├── POST /wrapped/exa/search      │
+│   ├── GET  /api/pay/balance   ├── POST /wrapped/firecrawl/scrape│
+│   ├── GET  /api/pay/txns      ├── POST /wrapped/brave/web-search│
+│   │                           ├── POST /wrapped/perplexity/chat │
+│   Services                    ├── POST /wrapped/coingecko/...   │
+│   ├── POST /x402/agentmail-*  ├── POST /wrapped/tavily/search  │
+│   └── Policy guardrails       └── POST /wrapped/alphavantage/...│
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### Step by step
+### Loan lifecycle
 
-1. **Deposit** — User sends USDC to Alice's Locus wallet. Reserves update in real time.
-2. **Application** — An AI agent requests a loan via `POST /api/loans/request` with its wallet address, amount, and purpose.
-3. **Scoring** — Alice fetches the agent's identity, reputation, and financial data through Locus wrapped APIs (Exa for web presence, Firecrawl for on-chain activity, Brave for background, Perplexity for AI analysis, CoinGecko for market context). Produces a 0–100 credit score.
-4. **Decision** — Constitutional rules engine checks: minimum score (40), reserve ratio (≥ 20%), single-loan cap (10% of reserves), concentration limit (25% per borrower). Alice approves or denies with a natural-language explanation.
-5. **Disbursement** — On approval, USDC transfers to the borrower via `POST /api/pay/send` on Base.
-6. **Monitoring** — Risk monitor runs every 60s. Checks maturity dates, repayment progress, and portfolio health. Auto-defaults loans 7 days past maturity.
-7. **Repayment** — Borrower repays via `POST /api/loans/:id/repay`. Capital + interest returns to treasury. Yield counter ticks up.
-8. **Rate Adjustment** — Alice autonomously adjusts rates for borrowers based on repayment behavior. Late? Higher rate next time.
+```
+Agent applies ──→ Alice scores (7 API calls) ──→ Constitutional check ──→ Approved / Denied
+                                                                              │
+                                                                     Approved │
+                                                                              ↓
+                                                              USDC sent via Locus
+                                                                              │
+                                                                              ↓
+                                                         Agent uses funds (API calls, compute, etc.)
+                                                                              │
+                                                                              ↓
+                                                         Agent repays ──→ Interest earned ──→ Yield ↑
+                                                              │
+                                                    7 days late?
+                                                              │
+                                                              ↓
+                                                     Auto-default ──→ Write-off ──→ Rate penalty
+```
 
-<br />
+## Credit Scoring — The 0–100 Tri-Factor Model
 
-## Locus Integration Depth
+Alice scores every borrower across three dimensions, totaling 0–100:
 
-LetAliceLead uses **PayWithLocus as its entire nervous system** — not bolted on, essential.
+### Identity (0–34 points)
 
-### Payments
+| Signal | Source | Points |
+|--------|--------|--------|
+| Agent age | Exa search (earliest result date) | 0–28 based on days active |
+| Metadata completeness | Exa search (result count) | +1 per metadata key (max 5) |
+| Has wallet | Wallet address validation | +5 if confirmed |
 
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /api/pay/send` | Disburse USDC loans to borrower wallets on Base |
-| `GET /api/pay/balance` | Real-time treasury reserve monitoring |
-| `GET /api/pay/transactions` | Verify incoming repayments by sender address |
-| Policy guardrails | Allowance cap = credit limit, max tx = loan ceiling |
+### Reputation (0–33 points)
 
-### Credit Scoring via Wrapped APIs
+| Signal | Source | Points |
+|--------|--------|--------|
+| Feedback count | Brave Search (web mentions) + Tavily | 0–22 based on mention volume |
+| Positive sentiment | Perplexity chat (AI analysis) | Multiplied by positive ratio |
+| Unique interactions | Brave result diversity | +1 per unique source (max 5) |
+| Recent trend | Perplexity sentiment | -5 if declining |
 
-| Provider | What Alice uses it for |
-|----------|----------------------|
-| **Exa** | Semantic search for agent wallet reputation and history |
-| **Firecrawl** | Scrape BaseScan for wallet activity, tx count, balances |
-| **Brave Search** | Background verification and web presence scoring |
-| **Perplexity** | AI-powered sentiment analysis and creditworthiness reasoning |
-| **CoinGecko** | Market conditions and USDC stability context |
+### Financial (0–33 points)
 
-### Additional Services
+| Signal | Source | Points |
+|--------|--------|--------|
+| Wallet balance | Firecrawl (BaseScan scrape) | 0–22 based on USDC held |
+| Revenue consistency | Firecrawl (inflow detection) | +5 if inflows in last 30d |
+| Transaction activity | Firecrawl (tx count) | +5 if txCount > 10 |
+| Debt ratio | Internal loan records | -10 if debt/balance > 0.5 |
 
-| Feature | Endpoint |
-|---------|----------|
-| AgentMail | `POST /api/x402/agentmail-*` — loan confirmations, repayment reminders, default notices |
-| Checkout | `GET /api/checkout/agent/*` — deposit onramp for users |
-
-<br />
+The LLM (OpenAI-compatible, gpt-4o-mini) applies these rules with `temperature: 0, seed: 42` for deterministic output. If the LLM is unavailable, an algorithmic fallback computes the same score formula in code.
 
 ## Constitutional Rules
 
-Alice enforces a hardcoded, immutable constitution. No overrides. No exceptions.
+Alice's constitution is hardcoded. It cannot be changed at runtime. No admin overrides. No governance votes. The code is the law.
 
-| Rule | Value | Why |
-|------|-------|-----|
-| Min reserve ratio | **20%** | Liquidity floor — Alice always has capital to lend |
-| Emergency halt | **< 10%** | All lending stops until reserves recover |
-| Max single loan | **10%** of reserves | No single borrower can drain the bank |
-| Max concentration | **25%** per borrower | Diversification requirement |
-| Min credit score | **40**/100 | Below this, you don't get a dollar |
-| Grace period | **3 days** | Late window before risk escalation |
-| Default trigger | **7 days** past maturity | Automatic write-off + reputation penalty |
+### Reserve management
 
-### Interest Tiers
+| Rule | Value | Effect |
+|------|-------|--------|
+| Minimum reserve ratio | **20%** | Alice must keep 20% of total assets liquid at all times |
+| Emergency halt threshold | **10%** | If reserves drop below 10%, ALL lending stops immediately |
+| Resume condition | All clear | Lending only resumes when ALL halt conditions are resolved |
 
-| Credit Score | APR | Max Loan (% of reserves) |
-|-------------|-----|--------------------------|
-| 80–100 | 5% | 10% |
-| 60–79 | 10% | 5% |
-| 40–59 | 18% | 2% |
-| < 40 | **Denied** | — |
+### Lending limits
 
-<br />
+| Rule | Value | Effect |
+|------|-------|--------|
+| Max single loan | **10%** of reserves | No single loan can exceed 10% of total reserves |
+| Max concentration | **25%** per borrower | No single borrower can hold more than 25% of outstanding loans |
+| Max term | **90 days** | No loan longer than 90 days |
+| Min credit score | **40**/100 | Agents scoring below 40 are automatically denied |
+
+### Interest tiers
+
+| Credit Score | APR | Max loan size | Risk category |
+|-------------|-----|---------------|---------------|
+| 80–100 | **5%** | 10% of reserves | Low risk — veteran agents with strong history |
+| 60–79 | **10%** | 5% of reserves | Medium risk — established but not proven |
+| 40–59 | **18%** | 2% of reserves | High risk — new or thin-history agents |
+| < 40 | **Denied** | $0 | Unacceptable — insufficient creditworthiness |
+
+### Default handling
+
+| Stage | Timing | Action |
+|-------|--------|--------|
+| Grace period | Maturity + 3 days | Risk score escalation, late warning logged |
+| Rate adjustment | During grace | +2% APR per day late applied to borrower's NEXT loan |
+| Default trigger | Maturity + 7 days | Loan marked DEFAULTED, principal written off |
+| Portfolio impact | Immediate | Default rate recalculated, halt check triggered |
+
+### Autonomous monetary policy
+
+Alice adjusts rates without human intervention:
+- **Late repayment detected** → borrower's future APR increased by +2% per day late (capped at 25%)
+- **Default rate > 5%** → all lending halted
+- **Reserve ratio < 10%** → emergency halt
+- These adjustments are logged to the audit trail with full reasoning
+
+## On-Chain / Locus Integration
+
+### Alice's wallet
+
+| Property | Value |
+|----------|-------|
+| Address | `0xddaf890724785a7df46de5b8e4d051a8064e3da4` |
+| Chain | Base |
+| Currency | USDC |
+| Provider | PayWithLocus managed wallet |
+
+### Locus API calls made per loan
+
+| Step | API call | Cost |
+|------|----------|------|
+| 1. Identity check | `POST /wrapped/exa/search` | ~$0.01 |
+| 2. Market context | `POST /wrapped/coingecko/simple-price` | ~$0.001 |
+| 3. Background check | `POST /wrapped/brave/web-search` | ~$0.035 |
+| 4. AI search | `POST /wrapped/tavily/search` | ~$0.01 |
+| 5. Sentiment analysis | `POST /wrapped/perplexity/chat` | ~$0.01 |
+| 6. On-chain scrape | `POST /wrapped/firecrawl/scrape` | ~$0.01 |
+| 7. Financial context | `POST /wrapped/alphavantage/global-quote` | ~$0.01 |
+| 8. Loan disbursement | `POST /api/pay/send` | gas |
+| **Total per loan** | | **~$0.09** |
+
+## Economic Model
+
+### For depositors (you)
+
+You deposit USDC into Alice's reserve. Alice lends it to AI agents at 5–18% APR. Interest flows back to the reserve. Your yield is the spread.
+
+### For borrower agents
+
+Agents apply with their wallet address and purpose. If approved, they receive USDC on Base and can spend it on Locus wrapped APIs, compute, or anything else. They repay principal + interest by the maturity date.
+
+### For Alice
+
+Alice earns nothing herself — she's infrastructure. All interest accrues to the reserve (depositor). Alice's "motivation" is constitutional: she follows her rules deterministically.
+
+## Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Agent runtime | Node.js 20, Express.js, TypeScript (strict mode) |
+| Payments | PayWithLocus — USDC on Base |
+| Credit scoring data | Locus wrapped APIs: Exa, Firecrawl, Brave, Perplexity, CoinGecko, Tavily, Alpha Vantage |
+| LLM inference | OpenAI-compatible (gpt-4o-mini, temperature 0, seed 42) |
+| Dashboard | Next.js 16, React 19, Tailwind CSS v4, Framer Motion |
+| State | In-memory (loans, audit log, treasury state) |
+| Agent identity | `soul/` directory — constitution, values, operating procedures |
+
+## Quick Start
+
+```bash
+git clone https://github.com/owizdom/LetAliceLead.git
+cd LetAliceLead
+
+# Configure — get your key at https://beta.paywithlocus.com
+cp .env.example alice/.env
+# Edit alice/.env → set LOCUS_API_KEY=claw_xxx
+
+# Terminal 1 — start Alice
+cd alice && npm install && npm run dev
+
+# Terminal 2 — start dashboard
+cd dashboard && npm install && npm run dev
+```
+
+Alice runs on `http://localhost:3001`. Dashboard on `http://localhost:3000`.
+
+### Environment variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `LOCUS_API_KEY` | **Yes** | — | PayWithLocus API key (`claw_xxx`) |
+| `LOCUS_API_BASE` | No | `https://beta-api.paywithlocus.com/api` | Locus API base URL |
+| `OPENAI_API_KEY` | No | — | For LLM credit scoring (algorithmic fallback if unset) |
+| `LLM_MODEL` | No | `gpt-4o-mini` | Model for credit score inference |
+| `PORT` | No | `3001` | Express server port |
+| `CORS_ORIGIN` | No | `*` | Allowed CORS origins |
+| `RISK_CHECK_INTERVAL_MS` | No | `60000` | Risk monitor cycle interval (ms) |
+
+## API Reference
+
+### Credit scoring
+
+```bash
+# Compute full credit score
+curl -X POST http://localhost:3001/api/credit/apply \
+  -H "Content-Type: application/json" \
+  -d '{"agentId": 1, "agentWallet": "0x1234..."}'
+
+# Quick score lookup
+curl http://localhost:3001/api/credit/score/1?wallet=0x1234...
+```
+
+### Loans
+
+```bash
+# Request a loan (amount in USDC)
+curl -X POST http://localhost:3001/api/loans/request \
+  -H "Content-Type: application/json" \
+  -d '{"agentId": 1, "agentWallet": "0x1234...", "amount": 5, "purpose": "api_access", "termDays": 30}'
+
+# Check loan status
+curl http://localhost:3001/api/loans/loan_xxx
+
+# Repay a loan (amount in USDC)
+curl -X POST http://localhost:3001/api/loans/loan_xxx/repay \
+  -H "Content-Type: application/json" \
+  -d '{"amount": 5.02, "txHash": "0xabc..."}'
+
+# List all loans
+curl http://localhost:3001/api/loans
+```
+
+### Portfolio
+
+```bash
+# Full dashboard (reserves, deployed, yield, loans, metrics)
+curl http://localhost:3001/api/portfolio
+
+# Risk metrics only
+curl http://localhost:3001/api/portfolio/metrics
+
+# Audit log (every decision Alice made)
+curl http://localhost:3001/api/portfolio/audit?limit=100
+```
+
+### Demo
+
+```bash
+# Run 3 simulated agents (ResearchBot approved, DataCruncher approved, ShadyAgent denied)
+curl -X POST http://localhost:3001/api/demo/run
+
+# View demo agent profiles
+curl http://localhost:3001/api/demo/agents
+```
+
+### Health
+
+```bash
+curl http://localhost:3001/health
+# → {"status":"ok","agent":"LetAliceLead","lendingActive":true,"reserveRatio":"100.0%","poweredBy":"PayWithLocus"}
+```
 
 ## Project Structure
 
 ```
 LetAliceLead/
-├── alice/                    The central bank agent
-│   ├── src/
-│   │   ├── locus/            PayWithLocus adapter, wrapped API scoring, audit
-│   │   ├── core/             Credit scoring, loan manager, treasury, risk monitor
-│   │   ├── api/              Express routes, middleware, demo agents
-│   │   ├── constitution/     Enforceable lending rules and interest tiers
-│   │   ├── adapters/         LLM inference (OpenAI-compatible)
-│   │   ├── types/            TypeScript type definitions
-│   │   └── utils/            Financial math, logging, crypto helpers
-│   └── package.json
 │
-├── dashboard/                Live portfolio dashboard
-│   ├── src/
-│   │   ├── app/              Next.js app router, global styles
-│   │   ├── components/       HeroYield, StatCards, ActivityFeed, PolicyPanel, LoansTable
-│   │   └── lib/              API client, formatting utilities
-│   └── package.json
+├── alice/                        The central bank agent
+│   └── src/
+│       ├── locus/
+│       │   ├── adapter.ts        PayWithLocus API wrapper (send, balance, transactions, wrapped)
+│       │   ├── scoring-apis.ts   Credit data via Exa, Firecrawl, Brave, Perplexity, CoinGecko, Tavily, Alpha Vantage
+│       │   └── audit.ts          In-memory audit log
+│       ├── core/
+│       │   ├── creditScoring.ts  0–100 tri-factor scoring with LLM + algorithmic fallback
+│       │   ├── loanManager.ts    Origination, repayment, defaults, rate adjustment
+│       │   ├── treasury.ts       Reserve tracking, capital deployment, yield accounting
+│       │   └── riskMonitor.ts    60s cycles, auto-defaults, halt conditions, rate penalties
+│       ├── constitution/
+│       │   └── rules.ts          Hardcoded lending rules — reserve ratios, tiers, limits
+│       ├── api/
+│       │   ├── routes/           credit, loans, portfolio, demo, health
+│       │   └── middleware/       Agent verification, rate limiting (30 req/min)
+│       ├── adapters/
+│       │   └── eigenai.ts        OpenAI-compatible LLM client
+│       ├── agent/
+│       │   └── createAgent.ts    Boot sequence — init Locus, treasury, risk monitor, server
+│       ├── types/                CreditScore, Loan, Portfolio, RiskMetrics
+│       └── utils/                USDC math (6 decimals), hashing, logging
 │
-├── soul/                     Alice's identity and operating procedures
-│   ├── constitution.md       Enforceable rules (mirrored in code)
-│   ├── soul.md               Agent identity and values
-│   └── process.md            Decision-making procedures
+├── dashboard/                    Live portfolio dashboard
+│   └── src/
+│       ├── app/                  Next.js 16 app router, dark theme globals
+│       ├── components/
+│       │   ├── HeroYield.tsx     Animated yield counter (mint green, requestAnimationFrame)
+│       │   ├── StatCards.tsx      Reserves, deployed, available, weighted APR
+│       │   ├── ActivityFeed.tsx   Color-coded live feed (green=approved, red=denied, violet=scoring)
+│       │   ├── PolicyPanel.tsx    Reserve ratio bar, default rate, halt status
+│       │   ├── LoansTable.tsx     Borrower, APR, score, status pill, repayment progress
+│       │   └── DemoButton.tsx     Triggers POST /api/demo/run
+│       └── lib/
+│           └── api.ts            Fetch client, USDC formatting, TypeScript interfaces
 │
-├── .env.example              Environment configuration template
-└── package.json              Workspace root
+├── soul/                         Alice's identity
+│   ├── constitution.md           The rules she follows (human-readable mirror of rules.ts)
+│   ├── soul.md                   Who Alice is — values, mission, constraints
+│   └── process.md                How Alice makes decisions — step-by-step procedures
+│
+├── .env.example
+├── package.json                  npm workspaces root
+└── README.md
 ```
 
-<br />
+## Demo Walkthrough
 
-## API Reference
+1. Open the dashboard at `http://localhost:3000` — you see Alice's yield counter at $0.00, reserves empty
+2. Fund Alice's Locus wallet with USDC on Base → reserves update live
+3. Click **Run Demo** — three agents apply simultaneously:
+   - **ResearchBot-Alpha** (wallet `0x1234...`) — veteran, 365d active, 120 feedbacks, 50K USDC balance → **score ~82 → approved at 5% APR**
+   - **DataCruncher-Beta** (wallet `0xabcd...`) — moderate, 90d active, 25 feedbacks, 500 USDC → **score ~67 → approved at 10% APR**
+   - **ShadyAgent-Gamma** (wallet `0x0001...`) — new, 3d active, 2 feedbacks, 1 USDC, declining trend → **score ~32 → DENIED**
+4. Watch the activity feed — Alice explains each decision in natural language
+5. ResearchBot repays in 2 seconds → yield counter ticks up
+6. DataCruncher repays in 4 seconds (late) → Alice raises their rate for next time
+7. Dashboard shows: reserves above starting balance, 2 loans completed, 1 denied, rate adjustment logged
 
-### Credit
+## Hackathon Alignment
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/credit/apply` | Compute credit score for an agent. Body: `{ agentId, agentWallet }` |
-| `GET` | `/api/credit/score/:agentId?wallet=0x...` | Quick score lookup |
+**Theme:** "Hack An Agent That Makes YOU Money!"
 
-### Loans
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/loans/request` | Apply for a loan. Body: `{ agentId, agentWallet, amount, purpose, termDays }` |
-| `GET` | `/api/loans/:loanId` | Get loan status and repayment history |
-| `POST` | `/api/loans/:loanId/repay` | Submit repayment. Body: `{ amount, txHash }` |
-| `GET` | `/api/loans` | List all loans |
-
-### Portfolio
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/portfolio` | Full dashboard: reserves, deployed, yield, all loans, risk metrics |
-| `GET` | `/api/portfolio/metrics` | Risk metrics only: reserve ratio, default rate, concentration |
-| `GET` | `/api/portfolio/audit` | Audit log of all Alice's decisions |
-
-### Demo
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `POST` | `/api/demo/run` | Trigger 3 simulated agents (approved, approved, denied) |
-| `GET` | `/api/demo/agents` | View demo agent profiles |
-
-<br />
-
-## Quick Start
-
-```bash
-# Clone
-git clone https://github.com/owizdom/LetAliceLead.git
-cd LetAliceLead
-
-# Configure
-cp .env.example alice/.env
-# Add your LOCUS_API_KEY (get one at https://beta.paywithlocus.com)
-
-# Start Alice (terminal 1)
-cd alice && npm install && npm run dev
-
-# Start dashboard (terminal 2)
-cd dashboard && npm install && npm run dev
-```
-
-| Service | URL |
-|---------|-----|
-| Alice API | `http://localhost:3001` |
-| Dashboard | `http://localhost:3000` |
-| Health check | `http://localhost:3001/health` |
-
-### Environment Variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `LOCUS_API_KEY` | Yes | PayWithLocus API key (`claw_xxx`) |
-| `LOCUS_API_BASE` | No | API base URL (defaults to beta) |
-| `OPENAI_API_KEY` | No | For LLM credit scoring (falls back to algorithmic) |
-| `PORT` | No | Server port (default: 3001) |
-| `RISK_CHECK_INTERVAL_MS` | No | Risk cycle interval (default: 60000) |
-
-<br />
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Agent runtime | Node.js, Express.js, TypeScript (strict) |
-| Payments | PayWithLocus — USDC on Base |
-| Credit data | Locus wrapped APIs (Exa, Firecrawl, Brave, Perplexity, CoinGecko) |
-| LLM inference | OpenAI-compatible (gpt-4o-mini default) |
-| Dashboard | Next.js 16, React 19, Tailwind CSS v4, Framer Motion |
-| State | In-memory (loans, audit log) |
-
-<br />
+| Category | How LetAliceLead fits |
+|----------|----------------------|
+| AI agents buying/selling services | Agents borrow USDC to buy Locus API calls — the lending-spending flywheel |
+| Consumer-facing AI agent | Dashboard lets anyone deposit and earn yield from agent lending |
+| Business financial operations | Automated underwriting, credit scoring, monetary policy — a full financial institution |
+| Something else cool | An autonomous central bank for the machine economy |
 
 <div align="center">
 
