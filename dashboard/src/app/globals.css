@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg-primary: #0A0E17;
+  --color-bg-card: #111827;
+  --color-border: #1E293B;
+  --color-emerald: #10B981;
+  --color-mint: #34D399;
+  --color-danger: #EF4444;
+  --color-violet: #8B5CF6;
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Geist Mono", monospace;
+}
+
+body {
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+}
+
+@font-face {
+  font-family: "Inter";
+  src: local("Inter");
+}
+
+/* Tabular numbers for financial data */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Glow effect for hero yield */
+.yield-glow {
+  text-shadow: 0 0 40px rgba(52, 211, 153, 0.3), 0 0 80px rgba(52, 211, 153, 0.1);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+/* Pulse animation for live indicator */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
