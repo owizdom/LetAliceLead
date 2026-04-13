@@ -6,86 +6,142 @@ interface ActivityFeedProps {
   entries: AuditEntry[];
 }
 
-function getEntryColor(action: string): string {
-  if (action.includes("rejected") || action.includes("defaulted") || action.includes("halted")) return "#EF4444";
-  if (action.includes("originated") || action.includes("completed")) return "#10B981";
-  if (action.includes("credit") || action.includes("compute")) return "#8B5CF6";
-  if (action.includes("repayment")) return "#34D399";
-  if (action.includes("late") || action.includes("warn")) return "#F59E0B";
-  return "#94A3B8";
+function getAccentColor(action: string): string {
+  if (action.includes("rejected") || action.includes("defaulted") || action.includes("halted")) {
+    return "var(--danger)";
+  }
+  if (action.includes("originated") || action.includes("completed")) {
+    return "var(--success)";
+  }
+  if (action.includes("credit") || action.includes("scoring")) {
+    return "var(--accent)";
+  }
+  if (action.includes("late") || action.includes("adjustment") || action.includes("warn")) {
+    return "var(--accent)";
+  }
+  return "var(--muted)";
 }
 
-function getEntryIcon(action: string): string {
-  if (action.includes("rejected")) return "X";
-  if (action.includes("originated")) return "$";
-  if (action.includes("completed")) return "\u2713";
-  if (action.includes("defaulted")) return "!";
-  if (action.includes("credit")) return "\u2605";
-  if (action.includes("repayment")) return "\u21B5";
-  if (action.includes("risk")) return "\u25B2";
-  return "\u2022";
-}
-
-function formatAction(action: string, data: Record<string, unknown>): string {
+function formatAction(action: string, data: Record<string, unknown>): { title: string; detail: string } {
   if (action === "loan.originated") {
-    return `Loan approved for Agent #${data.agentId} — ${data.principal ? (Number(data.principal) / 1e6).toFixed(2) : "?"} USDC @ ${data.apr}% APR`;
+    const principal = data.principal ? (Number(data.principal) / 1e6).toFixed(2) : "?";
+    return {
+      title: `Loan approved`,
+      detail: `Agent #${data.agentId} — ${principal} USDC at ${data.apr}% APR for ${data.termDays}d`,
+    };
   }
   if (action === "loan.rejected") {
-    return `Denied Agent #${data.agentId}: ${data.reason || "policy violation"}`;
+    return {
+      title: `Loan denied`,
+      detail: `Agent #${data.agentId}: ${data.reason || "policy violation"}`,
+    };
   }
   if (action === "loan.completed") {
-    return `Loan repaid by Agent #${data.agentId} — interest earned: ${data.interestEarned ? (Number(data.interestEarned) / 1e6).toFixed(4) : "?"} USDC`;
+    const interest = data.interestEarned ? (Number(data.interestEarned) / 1e6).toFixed(4) : "?";
+    return {
+      title: `Repayment completed`,
+      detail: `Agent #${data.agentId} paid in full — ${interest} USDC interest earned`,
+    };
   }
   if (action === "loan.defaulted") {
-    return `DEFAULT: Agent #${data.agentId} — ${data.outstanding ? (Number(data.outstanding) / 1e6).toFixed(2) : "?"} USDC outstanding`;
+    const outstanding = data.outstanding ? (Number(data.outstanding) / 1e6).toFixed(2) : "?";
+    return {
+      title: `Loan defaulted`,
+      detail: `Agent #${data.agentId} — ${outstanding} USDC written off`,
+    };
   }
   if (action === "credit.score.computed") {
-    return `Credit score computed for Agent #${data.agentId}: ${data.score}/100`;
+    return {
+      title: `Credit score computed`,
+      detail: `Agent #${data.agentId}: ${data.score}/100`,
+    };
   }
   if (action === "risk.cycle.report") {
-    return `Risk cycle: ${data.activeLoans} active loans, reserve ratio ${typeof data.reserveRatio === "number" ? data.reserveRatio.toFixed(1) : data.reserveRatio}%`;
+    const ratio = typeof data.reserveRatio === "number" ? data.reserveRatio.toFixed(1) : data.reserveRatio;
+    return {
+      title: `Risk cycle completed`,
+      detail: `${data.activeLoans} active loans · ${ratio}% reserves`,
+    };
   }
-  return action.replace(/\./g, " ");
+  if (action === "risk.rate_adjustment") {
+    return {
+      title: `Rate adjustment`,
+      detail: `Agent #${data.agentId}: ${data.penalty} for next loan (${data.daysLate}d late)`,
+    };
+  }
+  if (action === "risk.loan.late") {
+    return {
+      title: `Late payment detected`,
+      detail: `Agent #${data.agentId}: ${data.daysLate}d past maturity`,
+    };
+  }
+  return {
+    title: action.replace(/[._]/g, " "),
+    detail: "",
+  };
 }
 
 export default function ActivityFeed({ entries }: ActivityFeedProps) {
-  const sorted = [...entries].reverse().slice(0, 30);
+  const filtered = entries.filter(
+    (e) => !e.action.includes("risk.cycle.start") && !e.action.includes("risk.cycle.complete")
+  );
+  const sorted = [...filtered].reverse().slice(0, 25);
 
   return (
-    <div className="bg-[#111827] border border-[#1E293B] rounded-lg p-4 h-full">
-      <h3 className="text-sm uppercase tracking-wider text-[#94A3B8] mb-3 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-[#10B981] pulse-dot" />
-        Live Activity Feed
-      </h3>
-      <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
-        {sorted.length === 0 ? (
-          <p className="text-[#94A3B8] text-sm italic">Waiting for activity...</p>
-        ) : (
-          sorted.map((entry, i) => {
-            const color = getEntryColor(entry.action);
-            const icon = getEntryIcon(entry.action);
+    <div
+      className="rounded-xl border bg-white overflow-hidden"
+      style={{ borderColor: "var(--border)" }}
+    >
+      {sorted.length === 0 ? (
+        <div className="p-8 text-center">
+          <p className="text-sm" style={{ color: "var(--muted)" }}>
+            Waiting for Alice to make her first decision…
+          </p>
+          <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
+            Click <span className="font-medium" style={{ color: "var(--text)" }}>Run demo</span> to trigger three agents.
+          </p>
+        </div>
+      ) : (
+        <ul>
+          {sorted.map((entry, i) => {
+            const color = getAccentColor(entry.action);
             const data = (entry.data as Record<string, unknown>) || {};
-            // Extract nested data if present
             const innerData = (data.data as Record<string, unknown>) || data;
+            const { title, detail } = formatAction(entry.action, innerData);
+            const time = new Date(entry.timestamp);
+
             return (
-              <div key={`${entry.timestamp}-${i}`} className="flex items-start gap-2 text-sm">
-                <span
-                  className="w-5 h-5 rounded flex items-center justify-center text-xs font-bold shrink-0 mt-0.5"
-                  style={{ backgroundColor: color + "20", color }}
-                >
-                  {icon}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-[#F1F5F9] truncate">{formatAction(entry.action, innerData)}</p>
-                  <p className="text-[#64748B] text-xs">
-                    {new Date(entry.timestamp).toLocaleTimeString()}
-                  </p>
+              <li
+                key={`${entry.timestamp}-${i}`}
+                className={`flex gap-4 px-5 py-4 ${i !== sorted.length - 1 ? "border-b" : ""}`}
+                style={{ borderColor: "var(--border)" }}
+              >
+                <div className="flex-shrink-0 mt-1.5">
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: color }}
+                  />
                 </div>
-              </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-sm font-medium" style={{ color: "var(--text)" }}>
+                      {title}
+                    </p>
+                    <p className="text-xs font-mono-tokens tabular-nums flex-shrink-0" style={{ color: "var(--muted)" }}>
+                      {time.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                    </p>
+                  </div>
+                  {detail && (
+                    <p className="text-sm mt-0.5" style={{ color: "var(--muted)" }}>
+                      {detail}
+                    </p>
+                  )}
+                </div>
+              </li>
             );
-          })
-        )}
-      </div>
+          })}
+        </ul>
+      )}
     </div>
   );
 }

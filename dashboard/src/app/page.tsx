@@ -8,12 +8,13 @@ import {
   AuditEntry,
   weiToUSDC,
 } from "@/lib/api";
-import HeroYield from "@/components/HeroYield";
-import StatCards from "@/components/StatCards";
+import Header from "@/components/Header";
+import HeroSection from "@/components/HeroSection";
+import StatsGrid from "@/components/StatsGrid";
 import ActivityFeed from "@/components/ActivityFeed";
 import PolicyPanel from "@/components/PolicyPanel";
 import LoansTable from "@/components/LoansTable";
-import DemoButton from "@/components/DemoButton";
+import Footer from "@/components/Footer";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const POLL_INTERVAL = 3000;
@@ -57,99 +58,85 @@ export default function Home() {
     : [];
 
   return (
-    <main className="min-h-screen p-4 lg:p-6 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <header className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">
-            <span style={{ color: "#8B5CF6" }}>Let</span>
-            <span>Alice</span>
-            <span style={{ color: "#10B981" }}>Lead</span>
-          </h1>
-          <p className="text-xs text-[#64748B] mt-0.5">
-            The First Autonomous Central Bank for AI Agents
-          </p>
-        </div>
-        <div className="flex items-center gap-4">
-          <DemoButton apiBase={API_BASE} />
-          <div className="text-right text-xs text-[#64748B]">
-            <p>Powered by <span className="text-[#10B981] font-semibold">PayWithLocus</span></p>
-            {dashboard && (
-              <p className="font-mono text-[#94A3B8]">
-                {dashboard.bankWallet === "unknown"
-                  ? "No wallet connected"
-                  : `${dashboard.bankWallet.slice(0, 6)}...${dashboard.bankWallet.slice(-4)}`}
-              </p>
-            )}
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen flex flex-col">
+      <Header isLive={isLive} bankWallet={dashboard?.bankWallet} apiBase={API_BASE} />
 
-      {/* Error Banner */}
-      {error && (
-        <div className="bg-[#EF4444]/10 border border-[#EF4444]/30 rounded-lg p-3 mb-4">
-          <p className="text-sm text-[#EF4444]">
-            Backend not reachable: {error}. Start the backend with <code className="bg-[#1E293B] px-1 rounded">npm run dev</code>
-          </p>
-        </div>
-      )}
+      <main className="flex-1">
+        <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-12 sm:py-16">
 
-      {/* Hero Yield */}
-      <HeroYield
-        totalYield={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
-        isLive={isLive}
-      />
-
-      {/* Stat Cards */}
-      <div className="mb-6">
-        <StatCards
-          reserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
-          deployed={dashboard ? weiToUSDC(dashboard.portfolio.deployedCapital) : 0}
-          available={dashboard ? weiToUSDC(dashboard.portfolio.availableCapital) : 0}
-          weightedAPR={dashboard?.metrics.weightedAverageAPR ?? 0}
-          lendingHalted={dashboard?.metrics.lendingHalted ?? false}
-        />
-      </div>
-
-      {/* Main Grid: Feed + Policy + Loans */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Activity Feed - Left */}
-        <div className="lg:col-span-5">
-          <ActivityFeed entries={auditEntries} />
-        </div>
-
-        {/* Policy Panel - Center */}
-        <div className="lg:col-span-3">
-          <PolicyPanel
-            metrics={
-              dashboard?.metrics ?? {
-                reserveRatio: 100,
-                defaultRate: 0,
-                averageCreditScore: 0,
-                concentrationRisk: 0,
-                totalExposure: "0",
-                weightedAverageAPR: 0,
-                lendingHalted: false,
-                computedAt: Date.now(),
-              }
-            }
-            riskCycles={riskCycles}
+          {/* Hero */}
+          <HeroSection
+            totalYield={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
+            totalReserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
           />
-        </div>
 
-        {/* Loans Table - Right */}
-        <div className="lg:col-span-4">
-          <LoansTable loans={allLoans} />
-        </div>
-      </div>
+          {error && (
+            <div className="mb-10 p-4 rounded-lg border" style={{ borderColor: "var(--danger)", background: "#FDF2F0" }}>
+              <p className="text-sm" style={{ color: "var(--danger)" }}>
+                Cannot reach Alice: {error}. Start the server with <code className="font-mono-tokens px-1.5 py-0.5 rounded text-xs" style={{ background: "var(--surface-2)" }}>cd alice &amp;&amp; npm run dev</code>
+              </p>
+            </div>
+          )}
 
-      {/* Footer */}
-      <footer className="mt-8 pt-4 border-t border-[#1E293B] text-center">
-        <p className="text-xs text-[#64748B]">
-          LetAliceLead v1.0.0 — Built for Locus Paygentic Hackathon #1
-          {dashboard && ` — Uptime: ${Math.floor(dashboard.uptime / 1000)}s`}
-        </p>
-      </footer>
-    </main>
+          <section className="mb-20">
+            <SectionHeading label="Portfolio" title="Treasury & deployed capital" />
+            <StatsGrid
+              reserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
+              deployed={dashboard ? weiToUSDC(dashboard.portfolio.deployedCapital) : 0}
+              available={dashboard ? weiToUSDC(dashboard.portfolio.availableCapital) : 0}
+              interestEarned={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
+              weightedAPR={dashboard?.metrics.weightedAverageAPR ?? 0}
+              avgScore={dashboard?.metrics.averageCreditScore ?? 0}
+            />
+          </section>
+
+          <section className="mb-20 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2">
+              <SectionHeading label="Live" title="Activity feed" />
+              <ActivityFeed entries={auditEntries} />
+            </div>
+            <div>
+              <SectionHeading label="Policy" title="Monetary rules" />
+              <PolicyPanel
+                metrics={
+                  dashboard?.metrics ?? {
+                    reserveRatio: 100,
+                    defaultRate: 0,
+                    averageCreditScore: 0,
+                    concentrationRisk: 0,
+                    totalExposure: "0",
+                    weightedAverageAPR: 0,
+                    lendingHalted: false,
+                    computedAt: Date.now(),
+                  }
+                }
+                riskCycles={riskCycles}
+              />
+            </div>
+          </section>
+
+          <section className="mb-20">
+            <SectionHeading label="Ledger" title={`Loan book (${allLoans.length})`} />
+            <LoansTable loans={allLoans} />
+          </section>
+
+        </div>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
+
+function SectionHeading({ label, title }: { label: string; title: string }) {
+  return (
+    <div className="mb-6">
+      <p className="text-xs uppercase tracking-widest mb-2" style={{ color: "var(--muted)" }}>
+        {label}
+      </p>
+      <h2 className="font-serif-display text-2xl tracking-tight" style={{ color: "var(--text)" }}>
+        {title}
+      </h2>
+    </div>
   );
 }

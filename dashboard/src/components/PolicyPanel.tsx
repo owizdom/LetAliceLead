@@ -7,90 +7,85 @@ interface PolicyPanelProps {
   riskCycles: number;
 }
 
-export default function PolicyPanel({ metrics, riskCycles }: PolicyPanelProps) {
+function Row({ label, value, accent }: { label: string; value: string; accent?: string }) {
   return (
-    <div className="bg-[#111827] border border-[#1E293B] rounded-lg p-4">
-      <h3 className="text-sm uppercase tracking-wider text-[#94A3B8] mb-3">
-        Monetary Policy
-      </h3>
+    <div className="flex items-baseline justify-between py-2.5">
+      <span className="text-sm" style={{ color: "var(--muted)" }}>{label}</span>
+      <span
+        className="text-sm font-mono-tokens tabular-nums"
+        style={{ color: accent || "var(--text)" }}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
 
-      <div className="space-y-3">
-        {/* Lending Status */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#94A3B8]">Lending Status</span>
-          <span
-            className={`text-sm font-semibold px-2 py-0.5 rounded ${
-              metrics.lendingHalted
-                ? "bg-[#EF4444]/20 text-[#EF4444]"
-                : "bg-[#10B981]/20 text-[#10B981]"
-            }`}
-          >
-            {metrics.lendingHalted ? "HALTED" : "ACTIVE"}
+export default function PolicyPanel({ metrics, riskCycles }: PolicyPanelProps) {
+  const reserveColor =
+    metrics.reserveRatio < 20 ? "var(--danger)" : metrics.reserveRatio < 50 ? "var(--accent)" : "var(--success)";
+
+  return (
+    <div
+      className="rounded-xl border bg-white p-5"
+      style={{ borderColor: "var(--border)" }}
+    >
+      <div className="flex items-center justify-between mb-5 pb-4 border-b" style={{ borderColor: "var(--border)" }}>
+        <span className="text-sm" style={{ color: "var(--muted)" }}>Status</span>
+        <span
+          className="text-xs font-medium px-2 py-0.5 rounded"
+          style={{
+            background: metrics.lendingHalted ? "#FDF2F0" : "var(--accent-soft)",
+            color: metrics.lendingHalted ? "var(--danger)" : "var(--accent)",
+          }}
+        >
+          {metrics.lendingHalted ? "HALTED" : "LENDING"}
+        </span>
+      </div>
+
+      <div className="mb-4">
+        <div className="flex items-baseline justify-between mb-2">
+          <span className="text-sm" style={{ color: "var(--muted)" }}>Reserve ratio</span>
+          <span className="text-sm font-mono-tokens tabular-nums" style={{ color: reserveColor }}>
+            {metrics.reserveRatio.toFixed(1)}%
           </span>
         </div>
-
-        {/* Reserve Ratio */}
-        <div>
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-[#94A3B8]">Reserve Ratio</span>
-            <span className="tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
-              {metrics.reserveRatio.toFixed(1)}%
-            </span>
-          </div>
-          <div className="w-full bg-[#1E293B] rounded-full h-2">
-            <div
-              className="h-2 rounded-full transition-all duration-500"
-              style={{
-                width: `${Math.min(metrics.reserveRatio, 100)}%`,
-                backgroundColor: metrics.reserveRatio < 20 ? "#EF4444" : metrics.reserveRatio < 50 ? "#F59E0B" : "#10B981",
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Default Rate */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#94A3B8]">Default Rate</span>
-          <span
-            className="text-sm tabular-nums"
+        <div
+          className="h-1 rounded-full overflow-hidden"
+          style={{ background: "var(--surface-3)" }}
+        >
+          <div
+            className="h-full transition-all duration-500"
             style={{
-              fontFamily: "var(--font-mono)",
-              color: metrics.defaultRate > 5 ? "#EF4444" : metrics.defaultRate > 2 ? "#F59E0B" : "#10B981",
+              width: `${Math.min(metrics.reserveRatio, 100)}%`,
+              background: reserveColor,
             }}
-          >
-            {metrics.defaultRate.toFixed(1)}%
-          </span>
+          />
         </div>
+      </div>
 
-        {/* Avg Credit Score */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#94A3B8]">Avg Credit Score</span>
-          <span className="text-sm tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
-            {metrics.averageCreditScore}/100
-          </span>
+      <div>
+        <Row
+          label="Default rate"
+          value={`${metrics.defaultRate.toFixed(1)}%`}
+          accent={metrics.defaultRate > 5 ? "var(--danger)" : undefined}
+        />
+        <Row label="Avg credit score" value={`${metrics.averageCreditScore} / 100`} />
+        <Row label="Concentration" value={`${metrics.concentrationRisk.toFixed(1)}%`} />
+        <Row label="Weighted APR" value={`${metrics.weightedAverageAPR.toFixed(1)}%`} />
+        <Row label="Risk cycles" value={`${riskCycles}`} />
+      </div>
+
+      {metrics.haltReason && (
+        <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: "#FDF2F0", color: "var(--danger)" }}>
+          {metrics.haltReason}
         </div>
+      )}
 
-        {/* Concentration Risk */}
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-[#94A3B8]">Concentration</span>
-          <span className="text-sm tabular-nums" style={{ fontFamily: "var(--font-mono)" }}>
-            {metrics.concentrationRisk.toFixed(1)}%
-          </span>
-        </div>
-
-        {/* Risk Cycles */}
-        <div className="flex items-center justify-between border-t border-[#1E293B] pt-2 mt-2">
-          <span className="text-sm text-[#94A3B8]">Risk Cycles</span>
-          <span className="text-sm tabular-nums text-[#8B5CF6]" style={{ fontFamily: "var(--font-mono)" }}>
-            {riskCycles}
-          </span>
-        </div>
-
-        {metrics.haltReason && (
-          <div className="bg-[#EF4444]/10 border border-[#EF4444]/30 rounded p-2 mt-2">
-            <p className="text-xs text-[#EF4444]">{metrics.haltReason}</p>
-          </div>
-        )}
+      <div className="mt-5 pt-4 border-t" style={{ borderColor: "var(--border)" }}>
+        <p className="text-xs" style={{ color: "var(--muted)" }}>
+          Alice enforces a hardcoded constitution. No overrides.
+        </p>
       </div>
     </div>
   );
