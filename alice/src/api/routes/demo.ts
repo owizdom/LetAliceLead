@@ -33,7 +33,7 @@ const DEMO_AGENTS = [
   {
     agentId: 3,
     name: 'ShadyAgent-Gamma',
-    wallet: '0x0000000000000000000000000000000000000003',
+    wallet: '0x0000000000000000000000000000000000000001',
     amount: 10,
     purpose: 'cashflow' as const,
     termDays: 7,

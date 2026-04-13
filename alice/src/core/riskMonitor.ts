@@ -1,5 +1,5 @@
 import { CONSTITUTION } from '../constitution/rules';
-import { getActiveLoans, processDefault } from './loanManager';
+import { getActiveLoans, processDefault, adjustBorrowerRate } from './loanManager';
 import { getRiskMetrics, refreshReserves } from './treasury';
 import { auditLog } from '../locus/audit';
 import { logger } from '../utils/logger';
@@ -64,11 +64,24 @@ async function runRiskCycle(): Promise<void> {
       const daysLate = Math.floor((now - loan.maturityAt) / 86400);
       loan.riskScore = Math.min(100, loan.riskScore + daysLate * 10);
 
+      // Raise this borrower's rate for future loans (+2% per day late)
+      const penalty = daysLate * 2;
+      adjustBorrowerRate(loan.borrowerAgentId, penalty);
+
       await logger.warn('risk.loan.late', {
         loanId: loan.id,
         agentId: loan.borrowerAgentId,
         daysLate,
         riskScore: loan.riskScore,
+        rateAdjustment: `+${penalty}% APR on next loan`,
+      });
+
+      await auditLog('risk.rate_adjustment', {
+        agentId: loan.borrowerAgentId,
+        loanId: loan.id,
+        daysLate,
+        penalty: `+${penalty}% APR`,
+        reason: 'Late repayment detected — autonomous monetary policy adjustment',
       });
     }
 

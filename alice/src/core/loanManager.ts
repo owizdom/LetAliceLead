@@ -11,6 +11,20 @@ import { calculateInterest, nowTimestamp, daysToMs, formatUSDC } from '../utils/
 // In-memory loan store
 const loans: Map<string, Loan> = new Map();
 
+// Rate adjustments — tracks APR penalties for late/problematic borrowers
+const rateAdjustments: Map<number, number> = new Map();
+
+/** Apply a rate penalty to a borrower (called by riskMonitor on late repayment) */
+export function adjustBorrowerRate(agentId: number, penaltyPct: number): void {
+  const current = rateAdjustments.get(agentId) || 0;
+  rateAdjustments.set(agentId, current + penaltyPct);
+}
+
+/** Get the current rate adjustment for a borrower */
+export function getBorrowerRateAdjustment(agentId: number): number {
+  return rateAdjustments.get(agentId) || 0;
+}
+
 // Simple async mutex
 let _lockPromise: Promise<void> = Promise.resolve();
 function acquireLock(): Promise<() => void> {
@@ -156,13 +170,25 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
     };
   }
 
-  // 9. Compute terms
-  const interest = calculateInterest(app.requestedAmount, tier.aprPercent, termDays);
+  // 9. Compute terms (apply rate adjustment for repeat borrowers)
+  const rateAdj = getBorrowerRateAdjustment(app.agentId);
+  const effectiveAPR = Math.min(tier.aprPercent + rateAdj, 25); // cap at 25%
+  const interest = calculateInterest(app.requestedAmount, effectiveAPR, termDays);
   const totalRepayment = app.requestedAmount + interest;
+
+  if (rateAdj > 0) {
+    await logger.info('loan.rate_adjusted', {
+      agentId: app.agentId,
+      baseAPR: tier.aprPercent,
+      adjustment: `+${rateAdj}%`,
+      effectiveAPR,
+      reason: 'Previous late repayment history',
+    });
+  }
 
   const terms: LoanTerms = {
     principalAmount: app.requestedAmount,
-    interestRateAPR: tier.aprPercent,
+    interestRateAPR: effectiveAPR,
     termDays,
     totalRepayment,
     creditScoreAtOrigination: creditScore,
