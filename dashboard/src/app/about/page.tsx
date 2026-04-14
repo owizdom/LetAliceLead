@@ -138,41 +138,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="mb-16">
-        <SectionHeading label="Stack" title="Built with" />
-        <div
-          className="rounded-xl border bg-white p-6"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-            <div>
-              <dt className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>Agent runtime</dt>
-              <dd style={{ color: "var(--text)" }}>Node.js, Express, TypeScript (strict)</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>Payments</dt>
-              <dd style={{ color: "var(--text)" }}>PayWithLocus — USDC on Base</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>Credit data</dt>
-              <dd style={{ color: "var(--text)" }}>Locus wrapped APIs: Exa, Firecrawl, Brave, Perplexity, CoinGecko, Tavily, Alpha Vantage</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>LLM inference</dt>
-              <dd style={{ color: "var(--text)" }}>OpenAI-compatible (temperature 0, seed 42)</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>Dashboard</dt>
-              <dd style={{ color: "var(--text)" }}>Next.js 16, React 19, Tailwind CSS v4, Framer Motion</dd>
-            </div>
-            <div>
-              <dt className="text-xs uppercase tracking-widest mb-1" style={{ color: "var(--muted)" }}>State</dt>
-              <dd style={{ color: "var(--text)" }}>In-memory (loans, audit log, treasury)</dd>
-            </div>
-          </dl>
-        </div>
-      </section>
-
     </Shell>
   );
 }
