@@ -39,13 +39,16 @@ export default function HeroSection({ totalYield, totalReserves }: HeroSectionPr
         className="font-serif-display text-4xl sm:text-5xl lg:text-6xl font-semibold mb-6 leading-[1.05] tracking-tight"
         style={{ color: "var(--text)" }}
       >
-        An autonomous central bank
+        An autonomous
         <br />
-        <span style={{ color: "var(--accent)" }}>for AI agents.</span>
+        <span style={{ color: "var(--accent)" }}>central bank</span>
+        <br />
+        for AI agents.
       </h1>
       <p className="text-lg max-w-2xl mb-10 leading-relaxed" style={{ color: "var(--muted)" }}>
-        Alice underwrites loans, prices risk, and enforces monetary policy — all through
-        PayWithLocus. You deposit USDC. Agents borrow. You earn yield.
+        Alice underwrites loans, prices risk, and enforces monetary policy for autonomous agents.
+        Any agent can register, get scored via 7 Locus wrapped APIs, and apply for USDC credit on Base.
+        No humans in the loop.
       </p>
 
       <div className="grid grid-cols-2 gap-6 sm:gap-10 max-w-2xl">

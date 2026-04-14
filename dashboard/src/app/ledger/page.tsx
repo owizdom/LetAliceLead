@@ -2,24 +2,32 @@
 
 import { useAlice } from "@/lib/useAlice";
 import { weiToUSDC } from "@/lib/api";
-import Shell, { SectionHeading } from "@/components/Shell";
-import HeroSection from "@/components/HeroSection";
-import SignalLoom from "@/components/SignalLoom";
+import Shell, { PageTitle, SectionHeading } from "@/components/Shell";
 import StatsGrid from "@/components/StatsGrid";
+import LoansTable from "@/components/LoansTable";
 import ActivityFeed from "@/components/ActivityFeed";
 
-export default function OverviewPage() {
+export default function LedgerPage() {
   const { dashboard, auditEntries, isLive, error } = useAlice();
+
+  const allLoans = dashboard
+    ? [
+        ...dashboard.portfolio.activeLoans,
+        ...dashboard.portfolio.completedLoans,
+        ...dashboard.portfolio.defaultedLoans,
+      ]
+    : [];
 
   return (
     <Shell isLive={isLive} bankWallet={dashboard?.bankWallet} error={error}>
-      <HeroSection
-        totalYield={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
-        totalReserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
+      <PageTitle
+        eyebrow="Ledger"
+        title="Loan book & portfolio"
+        lead="Every loan Alice has ever issued. Reserve movements, interest earned, and defaulters — all recorded immutably in the audit trail."
       />
 
       <section className="mb-16">
-        <SectionHeading label="Portfolio" title="Treasury at a glance" />
+        <SectionHeading label="Treasury" title="Capital position" />
         <StatsGrid
           reserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
           deployed={dashboard ? weiToUSDC(dashboard.portfolio.deployedCapital) : 0}
@@ -31,12 +39,12 @@ export default function OverviewPage() {
       </section>
 
       <section className="mb-16">
-        <SectionHeading label="Locus" title="Live wrapped-API signal" />
-        <SignalLoom entries={auditEntries} />
+        <SectionHeading label="Ledger" title={`Loan book (${allLoans.length})`} />
+        <LoansTable loans={allLoans} />
       </section>
 
       <section className="mb-16">
-        <SectionHeading label="Live" title="Recent activity" />
+        <SectionHeading label="Audit" title="Full activity log" />
         <ActivityFeed entries={auditEntries} />
       </section>
     </Shell>

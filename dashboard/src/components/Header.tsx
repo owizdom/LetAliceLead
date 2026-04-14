@@ -1,26 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 interface HeaderProps {
   isLive: boolean;
   bankWallet?: string;
-  apiBase: string;
 }
 
-export default function Header({ isLive, bankWallet, apiBase }: HeaderProps) {
-  const [running, setRunning] = useState(false);
+const NAV = [
+  { href: "/", label: "Overview" },
+  { href: "/agents", label: "Agents" },
+  { href: "/ledger", label: "Ledger" },
+  { href: "/policy", label: "Policy" },
+  { href: "/about", label: "About" },
+];
 
-  async function handleRunDemo() {
-    setRunning(true);
-    try {
-      await fetch(`${apiBase}/api/demo/run`, { method: "POST" });
-    } catch {
-      // swallow — UI will show stale state
-    } finally {
-      setRunning(false);
-    }
-  }
+export default function Header({ isLive, bankWallet }: HeaderProps) {
+  const pathname = usePathname();
 
   return (
     <header
@@ -28,25 +25,44 @@ export default function Header({ isLive, bankWallet, apiBase }: HeaderProps) {
       style={{ borderColor: "var(--border)", background: "rgba(250, 249, 247, 0.9)" }}
     >
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          <a href="/" className="font-serif-display font-semibold tracking-tight text-lg" style={{ color: "var(--text)" }}>
+        <div className="flex items-center gap-6 lg:gap-8">
+          <Link
+            href="/"
+            className="font-serif-display font-semibold tracking-tight text-lg"
+            style={{ color: "var(--text)" }}
+          >
             LetAliceLead
-          </a>
+          </Link>
           <nav className="hidden md:flex gap-0.5 text-sm">
-            <span className="px-3 py-1.5 rounded-md" style={{ color: "var(--muted)" }}>
-              Agent Central Bank
-            </span>
+            {NAV.map((item) => {
+              const active = item.href === "/" ? pathname === "/" : pathname?.startsWith(item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="px-3 py-1.5 rounded-md transition-colors"
+                  style={{
+                    color: active ? "var(--text)" : "var(--muted)",
+                    background: active ? "var(--surface-2)" : "transparent",
+                  }}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
 
         <div className="flex items-center gap-5">
-          <div className="hidden sm:flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${isLive ? "pulse-dot" : ""}`}
-              style={{ background: isLive ? "var(--success)" : "var(--danger)" }}
-            />
-            {isLive ? "Connected to Alice" : "Offline"}
-          </div>
+          {isLive && (
+            <div className="hidden sm:flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+              <span
+                className="w-1.5 h-1.5 rounded-full pulse-dot"
+                style={{ background: "var(--success)" }}
+              />
+              Live
+            </div>
+          )}
 
           {bankWallet && bankWallet !== "unknown" && (
             <a
@@ -59,18 +75,6 @@ export default function Header({ isLive, bankWallet, apiBase }: HeaderProps) {
               {bankWallet.slice(0, 6)}…{bankWallet.slice(-4)}
             </a>
           )}
-
-          <button
-            onClick={handleRunDemo}
-            disabled={running}
-            className="text-sm font-medium px-3.5 py-1.5 rounded-md transition-all disabled:opacity-50"
-            style={{
-              background: running ? "var(--surface-2)" : "var(--text)",
-              color: running ? "var(--muted)" : "var(--bg)",
-            }}
-          >
-            {running ? "Running…" : "Run demo"}
-          </button>
         </div>
       </div>
     </header>
