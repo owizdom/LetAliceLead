@@ -108,6 +108,55 @@ export interface RegisteredAgentData {
   };
 }
 
+export interface BobLiveData {
+  heartbeat: {
+    alive: boolean;
+    balance: number;
+    burnRate: number;
+    earnRate: number;
+    netRate: number;
+    ttd: number;
+    uptime: number;
+    activity: string;
+    currentTaskId: string | null;
+    tasksCompleted: number;
+    tickCount: number;
+    mood: string;
+  };
+  organism: {
+    id: string;
+    status: string;
+    activity: string;
+    balance: number;
+    totalEarned: number;
+    totalSpent: number;
+    tasksCompleted: number;
+    tasksFailed: number;
+    bornAt: number;
+    diedAt: number | null;
+    tickCount: number;
+    identity: {
+      publicKey?: string;
+      fingerprint?: string;
+      starknetAddress?: string;
+    };
+  };
+  chain: {
+    enabled: boolean;
+    totalHeartbeats: number;
+    totalSwaps: number;
+    totalSwapVolume: number;
+    isStakedEndur: boolean;
+    stakeAmount: number;
+    ethBalance: string;
+    lastHeartbeat: number;
+    recentTxs: Array<{ hash?: string; type?: string; timestamp?: number }>;
+  };
+  recentThoughts: Array<{ id: number; type: string; text: string; timestamp: number }>;
+  fetchedAt: number;
+  apiUrl: string;
+}
+
 export interface SovraLiveData {
   auction: {
     lastSettledAt: number;

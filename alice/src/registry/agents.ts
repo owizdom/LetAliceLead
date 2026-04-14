@@ -40,7 +40,7 @@ const seeded: RegisteredAgent[] = [
     name: 'Sovra',
     tagline: 'Canonical AgentKit reference on EigenCloud',
     description:
-      'Built by Gajesh Naik (Eigen Labs Lead Research Eng). A sovereign AI agent demonstrating autonomous on-chain operations in a TEE. Often cited as the canonical AgentKit reference implementation.',
+      'Built by Gajesh Naik. A sovereign AI agent demonstrating autonomous on-chain operations in a TEE. Often cited as the canonical AgentKit reference implementation.',
     wallet: '0x0000000000000000000000000000000000000000',
     chain: 'base',
     status: 'registered',
@@ -53,11 +53,12 @@ const seeded: RegisteredAgent[] = [
     name: 'bobIsAlive',
     tagline: 'Autonomous digital organism that must earn to survive',
     description:
-      'A living AI agent in an EigenCompute TEE that reads biology news, creates procedural SVG art, trades on Starknet Sepolia, stakes STRK in Endur, and maintains on-chain heartbeats. Won 1st place at Synthesis Hackathon 2026.',
-    wallet: '0x0000000000000000000000000000000000000001',
+      'A living AI agent that reads biology news, creates procedural SVG art, trades on Starknet Sepolia, stakes STRK in Endur, and maintains on-chain heartbeats. If his balance hits zero, he dies. Won 1st place at Synthesis Hackathon 2026.',
+    wallet: '0x4d8df94a00d8f267ceed9eacbde905928b0afcd8',
     chain: 'starknet',
-    status: 'dormant',
+    status: 'registered',
     github: 'https://github.com/owizdom/bobIsAlive',
+    website: 'https://bob-production-2c39.up.railway.app',
     registeredAt: Date.now(),
   },
 ];

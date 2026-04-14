@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RegisteredAgentData, SovraLiveData } from "@/lib/api";
+import { RegisteredAgentData, SovraLiveData, BobLiveData } from "@/lib/api";
 
 interface RegistryProps {
   agents: RegisteredAgentData[];
@@ -56,6 +56,8 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
         const isScoring = scoringId === agent.agentId;
         const isSovra = agent.liveState?.source === 'sovra';
         const sovraData = isSovra ? (agent.liveState!.data as SovraLiveData) : null;
+        const isBob = agent.liveState?.source === 'bob';
+        const bobData = isBob ? (agent.liveState!.data as BobLiveData) : null;
 
         return (
           <div
@@ -166,6 +168,108 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
                               </a>
                             </>
                           )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Live Bob data */}
+            {bobData && (
+              <div
+                className="mb-4 p-4 rounded-lg"
+                style={{ background: 'var(--surface-2)' }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
+                    Live from bobisalive.com
+                  </p>
+                  <p className="text-[10px] font-mono-tokens" style={{ color: 'var(--muted)' }}>
+                    {timeAgo(bobData.fetchedAt)}
+                  </p>
+                </div>
+
+                {/* Vital signs */}
+                <div className="grid grid-cols-3 gap-3 mb-3 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--muted)' }}>
+                      Balance
+                    </p>
+                    <p
+                      className="font-mono-tokens text-sm font-semibold tabular-nums"
+                      style={{
+                        color:
+                          bobData.heartbeat.balance < 20
+                            ? 'var(--danger)'
+                            : bobData.heartbeat.balance < 50
+                              ? 'var(--accent)'
+                              : 'var(--success)',
+                      }}
+                    >
+                      {bobData.heartbeat.balance.toFixed(2)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--muted)' }}>
+                      Mood
+                    </p>
+                    <p
+                      className="font-serif-display text-sm italic"
+                      style={{
+                        color:
+                          bobData.heartbeat.mood === 'dead'
+                            ? 'var(--danger)'
+                            : bobData.heartbeat.mood === 'critical' || bobData.heartbeat.mood === 'anxious'
+                              ? 'var(--danger)'
+                              : bobData.heartbeat.mood === 'cautious'
+                                ? 'var(--accent)'
+                                : 'var(--success)',
+                      }}
+                    >
+                      {bobData.heartbeat.mood}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--muted)' }}>
+                      Tick
+                    </p>
+                    <p className="font-mono-tokens text-sm tabular-nums" style={{ color: 'var(--text)' }}>
+                      #{bobData.heartbeat.tickCount}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Activity line */}
+                <div className="flex items-baseline justify-between mb-3 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+                  <span className="text-xs" style={{ color: 'var(--muted)' }}>
+                    Activity
+                  </span>
+                  <span className="text-xs font-serif-display italic" style={{ color: 'var(--text)' }}>
+                    {bobData.heartbeat.activity}
+                    {bobData.heartbeat.tasksCompleted > 0 && (
+                      <span className="ml-2 font-mono-tokens" style={{ color: 'var(--muted)' }}>
+                        · {bobData.heartbeat.tasksCompleted} tasks done
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                {/* Monologue */}
+                {bobData.recentThoughts.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--muted)' }}>
+                      Last thoughts
+                    </p>
+                    <ul className="space-y-1.5">
+                      {bobData.recentThoughts.slice(0, 3).map((thought) => (
+                        <li
+                          key={thought.id}
+                          className="text-xs leading-snug font-serif-display italic"
+                          style={{ color: 'var(--text)' }}
+                        >
+                          &ldquo;{thought.text.length > 90 ? thought.text.slice(0, 90) + '…' : thought.text}&rdquo;
                         </li>
                       ))}
                     </ul>

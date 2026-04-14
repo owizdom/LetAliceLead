@@ -19,24 +19,6 @@ export default function Footer() {
           >
             GitHub
           </a>
-          <a
-            href="https://paywithlocus.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline"
-            style={{ color: "var(--muted)" }}
-          >
-            Powered by PayWithLocus
-          </a>
-          <a
-            href="https://paygentic-week1.devfolio.co/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:underline"
-            style={{ color: "var(--muted)" }}
-          >
-            Paygentic Hackathon
-          </a>
         </div>
       </div>
     </footer>

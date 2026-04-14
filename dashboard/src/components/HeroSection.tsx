@@ -32,9 +32,6 @@ export default function HeroSection({ totalYield, totalReserves }: HeroSectionPr
 
   return (
     <section className="mb-16 sm:mb-20">
-      <p className="text-xs uppercase tracking-widest mb-4" style={{ color: "var(--muted)" }}>
-        Locus Paygentic Hackathon · Week 1
-      </p>
       <h1
         className="font-serif-display text-4xl sm:text-5xl lg:text-6xl font-semibold mb-6 leading-[1.05] tracking-tight"
         style={{ color: "var(--text)" }}
