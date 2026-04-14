@@ -278,6 +278,47 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
               </div>
             )}
 
+            {/* Credit card — the managed Base wallet Alice issued at registration */}
+            {agent.managedWallet && (
+              <div
+                className="mb-4 p-4 rounded-lg border"
+                style={{ borderColor: 'var(--border)', background: 'var(--surface-1)' }}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
+                    Credit card · managed Base wallet
+                  </p>
+                  <a
+                    href={`https://basescan.org/address/${agent.managedWallet}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] hover:underline"
+                    style={{ color: 'var(--muted)' }}
+                  >
+                    BaseScan ↗
+                  </a>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <code
+                    className="font-mono-tokens text-xs flex-1 truncate"
+                    style={{ color: 'var(--text)' }}
+                  >
+                    {agent.managedWallet}
+                  </code>
+                  <button
+                    onClick={() => navigator.clipboard?.writeText(agent.managedWallet!)}
+                    className="text-[10px] font-medium px-2 py-1 rounded"
+                    style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+                  >
+                    Copy
+                  </button>
+                </div>
+                <p className="text-[10px] mt-2" style={{ color: 'var(--muted)' }}>
+                  Alice-issued. Fund this address to cover interest; Alice auto-sweeps at maturity.
+                </p>
+              </div>
+            )}
+
             {/* Score row */}
             <div className="flex items-center justify-between mb-4 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
               <div>

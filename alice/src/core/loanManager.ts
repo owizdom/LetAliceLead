@@ -194,18 +194,28 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
     creditScoreAtOrigination: creditScore,
   };
 
-  // 10. Transfer USDC via Locus
+  // 10. Transfer USDC via Locus — route to the managed wallet if the agent has
+  // been issued one. That's the "credit card" destination. Otherwise use the
+  // external wallet the agent registered with (legacy self-custodial path).
   const now = nowTimestamp();
   const maturityTimestamp = now + Math.floor(daysToMs(termDays) / 1000);
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { getAgent } = require('../registry/agents') as typeof import('../registry/agents');
+  const registered = getAgent(app.agentId);
+  const disbursementAddress = registered?.managedWallet || app.agentWallet;
+  const disbursementMode: 'managed' | 'external' = registered?.managedWallet
+    ? 'managed'
+    : 'external';
 
   let txId: string;
   try {
     txId = await transferUSDC(
-      app.agentWallet,
+      disbursementAddress,
       app.requestedAmount,
-      `LetAliceLead Loan: ${formatUSDC(app.requestedAmount)} @ ${effectiveAPR}% APR for ${termDays}d to agent #${app.agentId}`
+      `LetAliceLead Loan (${disbursementMode}): ${formatUSDC(app.requestedAmount)} @ ${effectiveAPR}% APR for ${termDays}d to agent #${app.agentId}`
     );
-    await logger.info('loan.funding.onchain', { agentId: app.agentId, txId, mode: 'real' });
+    await logger.info('loan.funding.onchain', { agentId: app.agentId, txId, mode: 'real', disbursedTo: disbursementAddress, disbursementMode });
   } catch (err) {
     const errMsg = String(err);
     // If Locus wallet is unfunded, fall back to notional loan (dev/demo mode)
@@ -233,6 +243,8 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
     id: generateLoanId(),
     borrowerAgentId: app.agentId,
     borrowerWallet: app.agentWallet,
+    disbursedTo: disbursementAddress,
+    disbursementMode,
     terms,
     purpose: app.purpose,
     status: LoanStatus.ACTIVE,

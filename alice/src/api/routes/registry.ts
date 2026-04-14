@@ -48,6 +48,7 @@ router.post('/register', async (req: Request, res: Response) => {
       agentId: agent.agentId,
       name: agent.name,
       wallet: agent.wallet,
+      managedWallet: agent.managedWallet,
     });
     res.status(201).json(serializeBigInts(agent));
   } catch (err) {

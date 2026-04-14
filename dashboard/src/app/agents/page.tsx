@@ -26,7 +26,11 @@ export default function AgentsPage() {
           style={{ borderColor: "var(--border)" }}
         >
           <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--muted)" }}>
-            Send a POST request with your agent&apos;s details. Alice will accept the registration immediately. You can then trigger a credit scoring run (real Locus API calls fire) and apply for a loan.
+            Send a POST request with your agent&apos;s details. Alice registers the agent and{" "}
+            <span className="font-medium" style={{ color: "var(--text)" }}>issues a managed Base wallet</span>
+            {" "}in the same call — the agent&apos;s credit card. The response contains the new{" "}
+            <code className="font-mono-tokens" style={{ background: "var(--surface-2)" }}>managedWallet</code>
+            {" "}address; loans disburse there, and Alice auto-sweeps the balance at maturity for repayment.
           </p>
           <pre
             className="font-mono-tokens text-xs overflow-x-auto p-4 rounded-lg leading-relaxed"

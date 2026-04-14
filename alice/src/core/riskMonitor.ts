@@ -1,9 +1,11 @@
 import { CONSTITUTION } from '../constitution/rules';
-import { getActiveLoans, processDefault, adjustBorrowerRate } from './loanManager';
+import { getActiveLoans, processDefault, adjustBorrowerRate, processRepayment } from './loanManager';
 import { getRiskMetrics, refreshReserves } from './treasury';
 import { auditLog } from '../locus/audit';
 import { logger } from '../utils/logger';
 import { nowTimestamp, formatUSDC } from '../utils/math';
+import { getWalletBalance, sweepTo } from '../wallets/manager';
+import { getBalance } from '../locus/adapter';
 
 let monitorInterval: ReturnType<typeof setInterval> | null = null;
 let cycleCount = 0;
@@ -20,7 +22,6 @@ export function startRiskMonitor(): void {
     );
   }, intervalMs);
 
-  // Run immediately
   runRiskCycle().catch((err) =>
     logger.error('risk.monitor.initial.failed', err)
   );
@@ -41,12 +42,18 @@ async function runRiskCycle(): Promise<void> {
 
   await logger.debug('risk.cycle.start', { cycleId });
 
-  // Refresh Locus balance
   await refreshReserves().catch(() => {});
 
   const activeLoans = getActiveLoans();
 
   for (const loan of activeLoans) {
+    // First: try auto-sweep if this is a managed-wallet loan and the wallet has the funds.
+    // This closes the loop automatically without waiting for maturity.
+    if (loan.disbursementMode === 'managed' && loan.amountRepaid < loan.terms.totalRepayment) {
+      const swept = await attemptAutoSweep(loan.id, loan.borrowerAgentId, loan.terms.totalRepayment - loan.amountRepaid);
+      if (swept) continue;
+    }
+
     const defaultThreshold = loan.maturityAt + (CONSTITUTION.defaultAfterDays * 86400);
 
     if (now > defaultThreshold && loan.amountRepaid < loan.terms.totalRepayment) {
@@ -64,7 +71,6 @@ async function runRiskCycle(): Promise<void> {
       const daysLate = Math.floor((now - loan.maturityAt) / 86400);
       loan.riskScore = Math.min(100, loan.riskScore + daysLate * 10);
 
-      // Raise this borrower's rate for future loans (+2% per day late)
       const penalty = daysLate * 2;
       adjustBorrowerRate(loan.borrowerAgentId, penalty);
 
@@ -113,6 +119,64 @@ async function runRiskCycle(): Promise<void> {
     activeLoans: activeLoans.length,
     reserveRatio: `${metrics.reserveRatio.toFixed(1)}%`,
   });
+}
+
+/**
+ * Attempt to pull outstanding balance from an agent's managed wallet back to
+ * Alice's treasury. Real on-chain USDC transfer via viem.
+ * Returns true if the sweep fully covered the outstanding balance.
+ */
+async function attemptAutoSweep(
+  loanId: string,
+  agentId: number,
+  outstandingWei: bigint
+): Promise<boolean> {
+  const outstandingFloat = Number(outstandingWei) / 1e6;
+  const balance = await getWalletBalance(agentId);
+  if (balance < outstandingFloat - 1e-9) {
+    // Not enough — surface it for observability
+    if (balance > 0) {
+      await auditLog('wallet.insufficient_balance', {
+        agentId,
+        loanId,
+        walletBalance: balance,
+        needed: outstandingFloat,
+      });
+    }
+    return false;
+  }
+
+  // Get Alice's treasury wallet address from Locus
+  let treasuryAddress: string | undefined;
+  try {
+    const bal = await getBalance();
+    treasuryAddress = bal.walletAddress;
+  } catch (err) {
+    await logger.error('wallet.sweep.treasury_unreachable', { error: String(err) });
+    return false;
+  }
+  if (!treasuryAddress) return false;
+
+  const txHash = await sweepTo(agentId, treasuryAddress, outstandingFloat);
+  if (!txHash) return false;
+
+  try {
+    await processRepayment(loanId, outstandingWei, txHash);
+    await logger.info('wallet.auto_repaid', {
+      loanId,
+      agentId,
+      amount: outstandingFloat,
+      txHash,
+    });
+    return true;
+  } catch (err) {
+    await logger.error('wallet.auto_repaid.record_failed', {
+      loanId,
+      agentId,
+      error: String(err),
+    });
+    return false;
+  }
 }
 
 export function getCycleCount(): number {

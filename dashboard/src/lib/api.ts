@@ -88,6 +88,7 @@ export interface RegisteredAgentData {
   tagline: string;
   description: string;
   wallet: string;
+  managedWallet?: string;
   chain: string;
   status: 'live' | 'dormant' | 'registered';
   github?: string;

@@ -11,6 +11,9 @@ export interface RegisteredAgent {
   tagline: string;
   description: string;
   wallet: string;
+  // Managed Base wallet issued by Alice on registration — the agent's "credit card".
+  // External self-custodial agents registered before this system existed may not have one.
+  managedWallet?: string;
   chain: 'base' | 'starknet' | 'ethereum' | 'other';
   status: AgentStatus;
   github?: string;
@@ -84,12 +87,28 @@ export function registerAgent(input: {
   github?: string;
   website?: string;
 }): RegisteredAgent {
+  const agentId = nextAgentId++;
+
+  // Issue a managed Base wallet for this agent — Alice's credit-card analogue.
+  // Lazy require so unit tests that don't touch wallets don't need viem configured.
+  let managedWallet: string | undefined;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { issueWallet } = require('../wallets/manager');
+    const issued = issueWallet(agentId);
+    managedWallet = issued.address;
+  } catch {
+    // Wallets module failed to initialize — keep the agent registered without a card.
+    // Will surface in audit log via logger.
+  }
+
   const agent: RegisteredAgent = {
-    agentId: nextAgentId++,
+    agentId,
     name: input.name,
     tagline: input.tagline,
     description: input.description,
     wallet: input.wallet,
+    managedWallet,
     chain: input.chain || 'base',
     status: 'registered',
     github: input.github,

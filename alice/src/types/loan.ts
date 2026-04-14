@@ -22,6 +22,11 @@ export interface Loan {
   id: string;
   borrowerAgentId: number;
   borrowerWallet: string;
+  // Actual address USDC was disbursed to — may be the agent's external wallet
+  // (legacy self-custodial) or their Alice-issued managed wallet. Used by the
+  // auto-sweep path to know which wallet to pull repayments from.
+  disbursedTo?: string;
+  disbursementMode?: 'managed' | 'external';
   terms: LoanTerms;
   purpose: LoanPurpose;
   status: LoanStatus;
