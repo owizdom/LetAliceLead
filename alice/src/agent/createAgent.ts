@@ -5,6 +5,7 @@ import { initTreasury } from '../core/treasury';
 import { startRiskMonitor, stopRiskMonitor } from '../core/riskMonitor';
 import { startAgentLoop, stopAgentLoop } from '../core/agentLoop';
 import { startCollateralMonitor, stopCollateralMonitor } from '../core/collateralMonitor';
+import { syncHistoricalDisbursements } from '../core/loanManager';
 import { startLiveUpdater, stopLiveUpdater } from '../registry/liveUpdater';
 import { createServer } from '../api/server';
 import { logger } from '../utils/logger';
@@ -39,6 +40,13 @@ export async function createAgent(config: AgentConfig) {
 
   await logger.info('agent.init.live_updater', {});
   startLiveUpdater();
+
+  // Sync historical loan disbursements from Locus tx history so the loan
+  // book survives complete data loss. New imports get persisted to
+  // ~/.config/alice/loans.json.
+  await logger.info('agent.init.loan_sync', {});
+  const syncResult = await syncHistoricalDisbursements();
+  await logger.info('agent.init.loan_sync.complete', syncResult);
 
   // Cross-chain collateral monitor — every ~120s re-prices each active loan's
   // pledged collateral via Locus CoinGecko, recomputes LTV + health.

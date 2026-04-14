@@ -7,9 +7,189 @@ import { auditLog } from '../locus/audit';
 import { logger } from '../utils/logger';
 import { generateLoanId, serializeBigInts } from '../utils/crypto';
 import { calculateInterest, nowTimestamp, daysToMs, formatUSDC } from '../utils/math';
+import { homedir } from 'os';
+import { join } from 'path';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 
-// In-memory loan store
-const loans: Map<string, Loan> = new Map();
+// In-memory loan store, persisted to a JSON file so loans survive restarts.
+// One source of truth — the file is the "loan ledger" snapshot.
+const LOAN_STORE_PATH = process.env.ALICE_LOAN_STORE_PATH ||
+  join(homedir(), '.config', 'alice', 'loans.json');
+
+function loadLoans(): Map<string, Loan> {
+  try {
+    if (!existsSync(LOAN_STORE_PATH)) return new Map();
+    const raw = readFileSync(LOAN_STORE_PATH, 'utf8');
+    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
+    const map = new Map<string, Loan>();
+    for (const entry of parsed) {
+      const loan = revivedLoan(entry);
+      if (loan) map.set(loan.id, loan);
+    }
+    return map;
+  } catch {
+    return new Map();
+  }
+}
+
+function revivedLoan(raw: Record<string, unknown>): Loan | null {
+  try {
+    const terms = raw.terms as Record<string, unknown>;
+    return {
+      ...(raw as unknown as Loan),
+      terms: {
+        ...(terms as unknown as LoanTerms),
+        principalAmount: BigInt(String(terms.principalAmount)),
+        totalRepayment: BigInt(String(terms.totalRepayment)),
+      },
+      amountRepaid: BigInt(String(raw.amountRepaid ?? '0')),
+      repaymentHistory: ((raw.repaymentHistory as unknown[]) || []).map((r) => {
+        const e = r as Record<string, unknown>;
+        return {
+          amount: BigInt(String(e.amount)),
+          timestamp: Number(e.timestamp),
+          txHash: String(e.txHash),
+        };
+      }),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveLoans(): void {
+  try {
+    mkdirSync(join(homedir(), '.config', 'alice'), { recursive: true });
+    const arr = [...loans.values()].map((l) => serializeBigInts(l));
+    writeFileSync(LOAN_STORE_PATH, JSON.stringify(arr, null, 2), 'utf8');
+  } catch (err) {
+    void logger.warn('loan.persist.failed', { error: String(err) });
+  }
+}
+
+const loans: Map<string, Loan> = loadLoans();
+// Re-deploy capital for any active loan loaded from disk so the treasury
+// reflects what's actually outstanding.
+{
+  let outstanding = 0n;
+  for (const l of loans.values()) {
+    if (l.status === LoanStatus.ACTIVE || l.status === LoanStatus.REPAYING) {
+      outstanding += l.terms.principalAmount;
+    }
+  }
+  if (outstanding > 0n) deployCapital(outstanding);
+}
+
+/**
+ * Pull historical loan disbursements from Locus's tx history and re-add any
+ * that aren't already in the local store. Lets the loan ledger survive total
+ * data loss (delete loans.json → next boot re-imports from on-chain truth).
+ *
+ * Each imported loan is reconstructed from the disbursement memo
+ *   "LetAliceLead Loan (mode): X.XX USDC @ Y% APR for Zd to agent #N"
+ * and marked ACTIVE with the disbursement timestamp as origination.
+ */
+export async function syncHistoricalDisbursements(): Promise<{ imported: number; total: number }> {
+  const apiKey = process.env.LOCUS_API_KEY;
+  const base = process.env.LOCUS_API_BASE || 'https://beta-api.paywithlocus.com/api';
+  if (!apiKey) return { imported: 0, total: loans.size };
+
+  let imported = 0;
+  try {
+    const r = await fetch(`${base}/pay/transactions?limit=200`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    if (!r.ok) return { imported: 0, total: loans.size };
+    const body = (await r.json()) as {
+      data?: { transactions?: Array<{
+        id: string; status: string; amount_usdc: string; memo?: string;
+        to_address: string; created_at: string; tx_hash?: string;
+      }>; };
+    };
+    const txs = body.data?.transactions || [];
+
+    // Build a set of locus tx ids we already track so we don't re-import.
+    const knownLocusIds = new Set<string>([...loans.values()].map((l) => l.locusTxId || ''));
+
+    for (const tx of txs) {
+      if (tx.status !== 'CONFIRMED') continue;
+      if (!(tx.memo || '').toLowerCase().includes('letalicelead loan')) continue;
+      if (knownLocusIds.has(tx.id)) continue;
+
+      // Parse memo: "LetAliceLead Loan (mode): X.XXXXXX USDC @ Y% APR for Zd to agent #N"
+      const m = (tx.memo || '').match(/Loan\s*\(([^)]+)\):\s*([\d.]+)\s*USDC\s*@\s*([\d.]+)%\s*APR\s*for\s*(\d+)d\s*to\s*agent\s*#(\d+)/i);
+      if (!m) continue;
+      const [, mode, amountStr, aprStr, daysStr, agentIdStr] = m;
+      const amountUsdc = Number(amountStr);
+      const apr = Number(aprStr);
+      const termDays = Number(daysStr);
+      const agentId = Number(agentIdStr);
+      if (!Number.isFinite(amountUsdc) || amountUsdc <= 0) continue;
+
+      const principal = BigInt(Math.round(amountUsdc * 1e6));
+      const interest = BigInt(Math.round(amountUsdc * (apr / 100) * (termDays / 365) * 1e6));
+      const originatedAt = Math.floor(new Date(tx.created_at).getTime() / 1000);
+
+      const loan: Loan = {
+        id: `imported_${tx.id}`,
+        borrowerAgentId: agentId,
+        borrowerWallet: tx.to_address,
+        disbursedTo: tx.to_address,
+        disbursementMode: (mode === 'managed' || mode === 'external') ? mode : 'external',
+        terms: {
+          principalAmount: principal,
+          interestRateAPR: apr,
+          termDays,
+          totalRepayment: principal + interest,
+          creditScoreAtOrigination: 72, // sane default for re-imported historicals
+        },
+        purpose: 'api_access',
+        status: LoanStatus.ACTIVE,
+        locusTxId: tx.id,
+        txHash: tx.tx_hash,
+        originatedAt,
+        maturityAt: originatedAt + termDays * 86400,
+        amountRepaid: 0n,
+        repaymentHistory: [],
+        riskScore: 28,
+        lastRiskCheck: originatedAt,
+      };
+      // Backfill collateral for imported Bob loans (agentId 2) — the
+      // collateral monitor will re-price on its first cycle.
+      if (agentId === 2) {
+        loan.collateral = {
+          chain: 'starknet',
+          asset: 'STRK',
+          wallet: tx.to_address,
+          amount: 319,
+          pricedUsdc: 0,
+          ltvPct: 0,
+          health: 'healthy',
+          lastPricedAt: 0,
+        };
+      }
+      loans.set(loan.id, loan);
+      knownLocusIds.add(tx.id);
+      imported++;
+    }
+
+    if (imported > 0) {
+      saveLoans();
+      // Re-deploy capital for the imported active loans so the treasury
+      // metrics reflect the outstanding principal.
+      let importedPrincipal = 0n;
+      for (const l of loans.values()) {
+        if (l.id.startsWith('imported_') && (l.status === LoanStatus.ACTIVE || l.status === LoanStatus.REPAYING)) {
+          importedPrincipal += l.terms.principalAmount;
+        }
+      }
+      if (importedPrincipal > 0n) deployCapital(importedPrincipal);
+    }
+  } catch (err) {
+    void logger.warn('loan.import.failed', { error: String(err) });
+  }
+  return { imported, total: loans.size };
+}
 
 // Rate adjustments — tracks APR penalties for late/problematic borrowers
 const rateAdjustments: Map<number, number> = new Map();
@@ -278,6 +458,7 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
   };
 
   loans.set(loan.id, loan);
+  saveLoans();
   deployCapital(app.requestedAmount);
 
   // Resolve the on-chain Base tx hash so the dashboard can render a
@@ -290,6 +471,7 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
         const hash = await getOnChainHash(txId);
         if (hash) {
           loan.txHash = hash;
+          saveLoans();
           await auditLog('loan.tx_hash_resolved', {
             loanId: loan.id,
             locusTxId: txId,
@@ -375,8 +557,11 @@ async function _processRepayment(loanId: string, amount: bigint, txHash: string)
     remaining: formatUSDC(loan.terms.totalRepayment - loan.amountRepaid),
   });
 
+  saveLoans();
+
   if (loan.amountRepaid >= loan.terms.totalRepayment) {
     loan.status = LoanStatus.COMPLETED;
+    saveLoans();
     returnCapital(loan.terms.principalAmount);
     const interestEarned = loan.amountRepaid - loan.terms.principalAmount;
     recordInterest(interestEarned);
@@ -426,6 +611,7 @@ async function _processDefault(loanId: string): Promise<void> {
   if (loan.status === LoanStatus.DEFAULTED || loan.status === LoanStatus.COMPLETED) return;
 
   loan.status = LoanStatus.DEFAULTED;
+  saveLoans();
   const outstanding = loan.terms.totalRepayment - loan.amountRepaid;
   // Portion of outstanding balance attributable to interest Alice expected but will never see
   const principalOutstanding = loan.terms.principalAmount > loan.amountRepaid
