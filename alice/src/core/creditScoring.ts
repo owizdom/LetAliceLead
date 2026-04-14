@@ -1,6 +1,6 @@
 import { CreditFactors, CreditScore, ScoreBreakdown } from '../types';
 import { fetchIdentityData, fetchReputationData, fetchFinancialData } from '../locus/scoring-apis';
-import { deterministicInference } from '../adapters/eigenai';
+import { deterministicInference } from '../adapters/anthropic';
 import { auditLog } from '../locus/audit';
 import { logger } from '../utils/logger';
 import { serializeBigInts } from '../utils/crypto';

@@ -1,10 +1,10 @@
 import { initLocus } from '../locus/adapter';
-import { startHeartbeatLoop, sendHeartbeat } from '../locus/heartbeat';
-import { initEigenAI } from '../adapters/eigenai';
+import { startHeartbeatLoop, sendHeartbeat, stopHeartbeatLoop } from '../locus/heartbeat';
+import { initAnthropic } from '../adapters/anthropic';
 import { initTreasury } from '../core/treasury';
 import { startRiskMonitor, stopRiskMonitor } from '../core/riskMonitor';
+import { startAgentLoop, stopAgentLoop } from '../core/agentLoop';
 import { startLiveUpdater, stopLiveUpdater } from '../registry/liveUpdater';
-import { stopHeartbeatLoop } from '../locus/heartbeat';
 import { createServer } from '../api/server';
 import { logger } from '../utils/logger';
 
@@ -28,7 +28,7 @@ export async function createAgent(config: AgentConfig) {
   initLocus();
 
   await logger.info('agent.init.llm', {});
-  initEigenAI();
+  initAnthropic();
 
   await logger.info('agent.init.treasury', {});
   await initTreasury();
@@ -38,6 +38,11 @@ export async function createAgent(config: AgentConfig) {
 
   await logger.info('agent.init.live_updater', {});
   startLiveUpdater();
+
+  // Alice as an actual agent — Claude reasons over the full book each tick and chooses
+  // one tool to invoke (rescore, adjust rate, pause, note, wait). Not a cron, an agent.
+  await logger.info('agent.init.agent_loop', {});
+  startAgentLoop();
 
   // Per Locus skill doc: heartbeat check-in every 30 min, error feedback on failure
   await logger.info('agent.init.heartbeat', {});
@@ -74,6 +79,7 @@ export async function createAgent(config: AgentConfig) {
     stopHeartbeatLoop();
     stopRiskMonitor();
     stopLiveUpdater();
+    stopAgentLoop();
 
     server.close((err) => {
       if (err) {

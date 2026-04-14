@@ -40,6 +40,34 @@ export function getAuditLog(limit = 100): AuditEntry[] {
   return auditEntries.slice(-limit);
 }
 
+export interface MonologueEntry {
+  text: string;
+  agentName?: string;
+  agentId?: number;
+  timestamp: number;
+}
+
+/**
+ * Returns the most recent alice.monologue audit event as a structured snippet
+ * for the dashboard. Returns null if no monologue has been generated yet.
+ */
+export function getMostRecentMonologue(): MonologueEntry | null {
+  for (let i = auditEntries.length - 1; i >= 0; i--) {
+    const entry = auditEntries[i];
+    if (entry.action !== 'alice.monologue') continue;
+    const data = (entry.data as Record<string, unknown>) || {};
+    const text = typeof data.text === 'string' ? data.text : undefined;
+    if (!text) continue;
+    return {
+      text,
+      agentName: typeof data.agentName === 'string' ? data.agentName : undefined,
+      agentId: typeof data.agentId === 'number' ? data.agentId : undefined,
+      timestamp: entry.timestamp,
+    };
+  }
+  return null;
+}
+
 /**
  * Aggregates wrapped-API call audit events into a procurement summary —
  * total USDC Alice has paid Locus providers, broken out per provider.

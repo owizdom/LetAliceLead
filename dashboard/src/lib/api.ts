@@ -52,6 +52,12 @@ export interface Dashboard {
   uptime: number;
   procurement?: ProcurementSummary;
   vendorCatalog?: Array<{ provider: string; usdcPerCall: number }>;
+  latestMonologue?: {
+    text: string;
+    agentName?: string;
+    agentId?: number;
+    timestamp: number;
+  } | null;
 }
 
 export interface ProcurementSummary {
