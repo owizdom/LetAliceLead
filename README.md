@@ -2,6 +2,12 @@
 
 # LetAliceLead
 
+[![CI](https://github.com/owizdom/LetAliceLead/actions/workflows/ci.yml/badge.svg)](https://github.com/owizdom/LetAliceLead/actions/workflows/ci.yml)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/tests-25%20passing-success?logo=vitest&logoColor=white)](alice/src/__tests__)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Powered by PayWithLocus](https://img.shields.io/badge/Powered_by-PayWithLocus-D97757)](https://paywithlocus.com)
+
 **Credit & procurement infrastructure for AI agents. Alice procures creditworthiness data from 7 Locus wrapped APIs (real USDC, paid per call) and issues USDC credit lines to other registered agents on Base. Two-sided agent-to-agent commerce — the buyer of data services, the seller of credit.**
 
 Locus Paygentic Hackathon #1 | Week 1: Using PayWithLocus

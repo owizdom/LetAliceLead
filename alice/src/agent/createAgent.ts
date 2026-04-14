@@ -2,8 +2,9 @@ import { initLocus } from '../locus/adapter';
 import { startHeartbeatLoop, sendHeartbeat } from '../locus/heartbeat';
 import { initEigenAI } from '../adapters/eigenai';
 import { initTreasury } from '../core/treasury';
-import { startRiskMonitor } from '../core/riskMonitor';
-import { startLiveUpdater } from '../registry/liveUpdater';
+import { startRiskMonitor, stopRiskMonitor } from '../core/riskMonitor';
+import { startLiveUpdater, stopLiveUpdater } from '../registry/liveUpdater';
+import { stopHeartbeatLoop } from '../locus/heartbeat';
 import { createServer } from '../api/server';
 import { logger } from '../utils/logger';
 
@@ -46,7 +47,7 @@ export async function createAgent(config: AgentConfig) {
 
   const app = createServer();
 
-  app.listen(config.port, () => {
+  const server = app.listen(config.port, () => {
     const publicBase = process.env.PUBLIC_BASE_URL || `http://localhost:${config.port}`;
     logger.info('agent.ready', {
       bankName: config.bankName,
@@ -62,5 +63,35 @@ export async function createAgent(config: AgentConfig) {
     });
   });
 
-  return { app };
+  // Graceful shutdown — Railway/k8s send SIGTERM before killing the container.
+  // Stop background loops, drain in-flight HTTP requests (10s budget), then exit cleanly.
+  let shuttingDown = false;
+  const shutdown = (signal: NodeJS.Signals) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    logger.warn('agent.shutdown.start', { signal }).catch(() => {});
+
+    stopHeartbeatLoop();
+    stopRiskMonitor();
+    stopLiveUpdater();
+
+    server.close((err) => {
+      if (err) {
+        logger.error('agent.shutdown.server_close_error', { error: String(err) }).catch(() => {});
+        process.exit(1);
+      }
+      logger.info('agent.shutdown.complete', { signal }).catch(() => {}).finally(() => process.exit(0));
+    });
+
+    // Hard exit if drain takes longer than 10s
+    setTimeout(() => {
+      logger.error('agent.shutdown.timeout_forced', {}).catch(() => {});
+      process.exit(1);
+    }, 10_000).unref();
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
+
+  return { app, server };
 }

@@ -1,4 +1,22 @@
+import pino from 'pino';
 import { auditLog } from '../locus/audit';
+
+const isDev = process.env.NODE_ENV !== 'production';
+
+const baseLogger = pino({
+  level: process.env.LOG_LEVEL || (isDev ? 'debug' : 'info'),
+  base: { service: 'alice', version: '1.0.0' },
+  transport: isDev
+    ? {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:HH:MM:ss.l',
+          ignore: 'pid,hostname,service,version',
+        },
+      }
+    : undefined,
+});
 
 export enum LogLevel {
   DEBUG = 'DEBUG',
@@ -7,32 +25,32 @@ export enum LogLevel {
   ERROR = 'ERROR',
 }
 
-export async function log(level: LogLevel, action: string, data?: unknown): Promise<void> {
-  const timestamp = new Date().toISOString();
-  const prefix = `[${timestamp}] [${level}] [${action}]`;
-
+async function emit(level: LogLevel, action: string, data?: unknown): Promise<void> {
+  const payload = data && typeof data === 'object' ? { action, ...(data as Record<string, unknown>) } : { action, data };
   switch (level) {
-    case LogLevel.ERROR:
-      console.error(prefix, data ?? '');
+    case LogLevel.DEBUG:
+      baseLogger.debug(payload, action);
+      break;
+    case LogLevel.INFO:
+      baseLogger.info(payload, action);
       break;
     case LogLevel.WARN:
-      console.warn(prefix, data ?? '');
+      baseLogger.warn(payload, action);
       break;
-    case LogLevel.DEBUG:
-      console.debug(prefix, data ?? '');
+    case LogLevel.ERROR:
+      baseLogger.error(payload, action);
       break;
-    default:
-      console.log(prefix, data ?? '');
   }
-
   if (level !== LogLevel.DEBUG) {
-    await auditLog(action, { level, data, timestamp }).catch(() => {});
+    await auditLog(action, { level, data, timestamp: new Date().toISOString() }).catch(() => {});
   }
 }
 
 export const logger = {
-  debug: (action: string, data?: unknown) => log(LogLevel.DEBUG, action, data),
-  info: (action: string, data?: unknown) => log(LogLevel.INFO, action, data),
-  warn: (action: string, data?: unknown) => log(LogLevel.WARN, action, data),
-  error: (action: string, data?: unknown) => log(LogLevel.ERROR, action, data),
+  debug: (action: string, data?: unknown) => emit(LogLevel.DEBUG, action, data),
+  info: (action: string, data?: unknown) => emit(LogLevel.INFO, action, data),
+  warn: (action: string, data?: unknown) => emit(LogLevel.WARN, action, data),
+  error: (action: string, data?: unknown) => emit(LogLevel.ERROR, action, data),
 };
+
+export const baseLog = baseLogger;

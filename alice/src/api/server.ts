@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { rateLimit } from './middleware/rateLimit';
+import { requestId } from './middleware/requestId';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import creditRoutes from './routes/credit';
 import loanRoutes from './routes/loans';
 import portfolioRoutes from './routes/portfolio';
@@ -10,8 +13,34 @@ import registryRoutes from './routes/registry';
 export function createServer(): express.Application {
   const app = express();
 
-  app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
-  app.use(express.json());
+  // Security + observability — applied before any business logic so every
+  // request gets a consistent id, security headers, and a JSON body parser
+  // with a sane size cap.
+  app.use(requestId);
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // dashboard renders inline styles via Tailwind
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    })
+  );
+
+  // CORS: comma-separated allowlist or '*' if unset
+  const origin = process.env.CORS_ORIGIN || '*';
+  if (origin === '*') {
+    app.use(cors({ origin: '*' }));
+  } else {
+    const allowed = origin.split(',').map((s) => s.trim());
+    app.use(
+      cors({
+        origin: (incoming, cb) => {
+          if (!incoming || allowed.includes(incoming)) cb(null, true);
+          else cb(new Error(`CORS: ${incoming} not in allowlist`));
+        },
+      })
+    );
+  }
+
+  app.use(express.json({ limit: '256kb' }));
   app.use(rateLimit);
 
   app.use('/api/credit', creditRoutes);
@@ -40,6 +69,9 @@ export function createServer(): express.Application {
       poweredBy: ['PayWithLocus', 'USDC on Base', 'Locus Wrapped APIs'],
     });
   });
+
+  app.use(notFoundHandler);
+  app.use(errorHandler);
 
   return app;
 }

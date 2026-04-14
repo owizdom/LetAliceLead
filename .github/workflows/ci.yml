@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  alice:
+    name: alice (typecheck + test + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: alice/package-lock.json
+
+      - name: Install
+        working-directory: alice
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: alice
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: alice
+        run: npm test
+
+      - name: Build
+        working-directory: alice
+        run: npm run build
+
+  dashboard:
+    name: dashboard (typecheck + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install
+        working-directory: dashboard
+        run: npm ci
+
+      - name: Build
+        working-directory: dashboard
+        run: npx next build
