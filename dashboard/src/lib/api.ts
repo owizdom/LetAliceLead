@@ -76,6 +76,33 @@ export async function fetchLoans(): Promise<{ count: number; loans: Loan[] }> {
   return res.json();
 }
 
+export async function fetchRegistry(): Promise<{ count: number; agents: RegisteredAgentData[] }> {
+  const res = await fetch(`${API_BASE}/api/registry`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
+export interface RegisteredAgentData {
+  agentId: number;
+  name: string;
+  tagline: string;
+  description: string;
+  wallet: string;
+  chain: string;
+  status: 'live' | 'dormant' | 'registered';
+  github?: string;
+  website?: string;
+  registeredAt: number;
+  creditScore?: number;
+  scoredAt?: number;
+  scoreBreakdown?: {
+    identityScore: number;
+    reputationScore: number;
+    financialScore: number;
+    reasoning?: string;
+  };
+}
+
 export async function requestLoan(params: {
   agentId: number;
   agentWallet: string;
