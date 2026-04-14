@@ -51,6 +51,17 @@ const seeded: RegisteredAgent[] = [
     github: 'https://github.com/Gajesh2007/sovra',
     website: 'https://sovra.dev',
     registeredAt: Date.now(),
+    // Seed score reflects Sovra's verifiable signals: live USDC auction
+    // revenue, Ed25519-signed public posts at sovra.dev, Eigen Labs
+    // engineering lineage, public GitHub, established uptime.
+    creditScore: 78,
+    scoredAt: Date.now(),
+    scoreBreakdown: {
+      identityScore: 30,
+      reputationScore: 26,
+      financialScore: 22,
+      reasoning: 'Public AgentKit reference on EigenCloud with live USDC auction at sovra.dev; Ed25519-signed posts; built by Eigen Labs Lead Research Eng.',
+    },
   },
   {
     agentId: 2,
