@@ -57,8 +57,12 @@ export async function getBalance(): Promise<LocusBalance> {
   const res = await fetch(`${API_BASE}/pay/balance`, { headers: headers() });
   if (!res.ok) {
     const err = await res.text();
+    const { recordError } = await import('./heartbeat');
+    recordError('/api/pay/balance', `${res.status} ${err.slice(0, 200)}`, { status_code: res.status });
     throw new Error(`Locus balance check failed (${res.status}): ${err}`);
   }
+  const { recordActivity } = await import('./heartbeat');
+  recordActivity('pay.balance');
   const body = await res.json() as { data?: LocusBalance } & LocusBalance;
   return body.data || body;
 }
@@ -75,8 +79,12 @@ export async function sendPayment(params: {
   });
   if (!res.ok) {
     const err = await res.text();
+    const { recordError } = await import('./heartbeat');
+    recordError('/api/pay/send', `${res.status} ${err.slice(0, 200)}`, { status_code: res.status, amount: params.amount });
     throw new Error(`Locus send failed (${res.status}): ${err}`);
   }
+  const { recordActivity } = await import('./heartbeat');
+  recordActivity('pay.send');
   const body = await res.json() as { data?: LocusSendResult } & LocusSendResult;
   return body.data || body;
 }
@@ -97,6 +105,8 @@ export async function getTransactions(opts: {
   const res = await fetch(url, { headers: headers() });
   if (!res.ok) {
     const err = await res.text();
+    const { recordError } = await import('./heartbeat');
+    recordError('/api/pay/transactions', `${res.status} ${err.slice(0, 200)}`, { status_code: res.status });
     throw new Error(`Locus transactions failed (${res.status}): ${err}`);
   }
   const body = await res.json() as { data?: LocusTransaction[] } & { transactions?: LocusTransaction[] };
@@ -115,10 +125,13 @@ export async function wrappedCall<T = unknown>(
     headers: headers(),
     body: JSON.stringify(body),
   });
+  const { recordActivity, recordError } = await import('./heartbeat');
   if (!res.ok) {
     const err = await res.text();
+    recordError(`/api/wrapped/${provider}/${endpoint}`, `${res.status} ${err.slice(0, 200)}`, { status_code: res.status, provider });
     throw new Error(`Locus wrapped/${provider}/${endpoint} failed (${res.status}): ${err}`);
   }
+  recordActivity('wrapped', provider);
   const result = await res.json() as WrappedApiResponse<T>;
   return result.data ?? (result as unknown as T);
 }
