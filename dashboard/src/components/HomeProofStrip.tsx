@@ -1,16 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchVerifiedDisbursements, VerifiedDisbursement } from "@/lib/api";
+import { fetchVerifiedDisbursements, VerifiedDisbursement, Dashboard, Loan } from "@/lib/api";
 
 const POLL_MS = 12_000;
 
+interface HomeProofStripProps {
+  /** Optional live dashboard so we can render the cross-chain backing line */
+  dashboard?: Dashboard | null;
+}
+
+function summarizeCollateral(loans: Loan[]): { strk: number; pricedUsd: number } {
+  let strk = 0;
+  let pricedUsd = 0;
+  for (const l of loans) {
+    if (l.collateral?.asset === 'STRK') strk += l.collateral.amount;
+    pricedUsd += l.collateral?.pricedUsdc || 0;
+  }
+  return { strk, pricedUsd };
+}
+
 /**
- * One-line credibility strip for the Brain home page. Tells visitors at a
- * glance that this isn't a demo: real USDC has moved on Base, here's the
- * proof, click to verify on BaseScan.
+ * Two-line credibility strip for the Brain home page. Top: real USDC moved
+ * on Base with a BaseScan link. Bottom: cross-chain backing summary so
+ * visitors see Alice reads Starknet + settles Base in the first second.
  */
-export default function HomeProofStrip() {
+export default function HomeProofStrip({ dashboard }: HomeProofStripProps) {
   const [list, setList] = useState<VerifiedDisbursement[]>([]);
 
   useEffect(() => {
@@ -28,13 +43,19 @@ export default function HomeProofStrip() {
     return () => { stop = true; clearInterval(id); };
   }, []);
 
-  if (list.length === 0) return null;
+  if (list.length === 0 && !dashboard?.crossChainCollateralUsd) return null;
 
   const totalDisbursed = list.reduce((s, d) => s + d.amountUsdc, 0);
   const latest = list[0];
 
+  const activeLoans = dashboard?.portfolio?.activeLoans ?? [];
+  const { strk } = summarizeCollateral(activeLoans);
+  const collateralUsd = dashboard?.crossChainCollateralUsd ?? 0;
+  const showCrossChain = strk > 0 && collateralUsd > 0;
+
   return (
-    <div className="flex justify-center mb-6 sm:mb-8 px-4">
+    <div className="flex flex-col items-center gap-2 mb-6 sm:mb-8 px-4">
+      {list.length > 0 && (
       <a
         href={latest.basescanUrl || "#"}
         target="_blank"
@@ -83,6 +104,29 @@ export default function HomeProofStrip() {
           {list.length} on BaseScan
         </span>
       </a>
+      )}
+
+      {showCrossChain && (
+        <div
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px]"
+          style={{
+            background: "color-mix(in srgb, var(--sky) 25%, var(--surface-1))",
+            border: "1px solid var(--sky-deep)",
+            color: "var(--sky-deep)",
+          }}
+          title="Live cross-chain backing — Bob's Starknet STRK stake priced via CoinGecko, settled on Base"
+        >
+          <span className="font-mono-tokens uppercase tracking-wider opacity-70">
+            cross-chain
+          </span>
+          <span style={{ color: "var(--text)" }}>
+            <span className="font-mono-tokens tabular-nums font-bold">{Math.round(strk)}</span>{" "}
+            STRK on Starknet backing{" "}
+            <span className="font-mono-tokens tabular-nums font-bold">${collateralUsd.toFixed(2)}</span>{" "}
+            of USDC loans on Base
+          </span>
+        </div>
+      )}
     </div>
   );
 }

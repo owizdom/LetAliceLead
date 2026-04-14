@@ -23,7 +23,7 @@ export default function BrainPage() {
   return (
     <Shell>
       <AliceFace mood={mood} auditEntries={auditEntries} />
-      <HomeProofStrip />
+      <HomeProofStrip dashboard={dashboard} />
       <AliceMonologue
         text={dashboard?.latestMonologue?.text}
         agentName={dashboard?.latestMonologue?.agentName}

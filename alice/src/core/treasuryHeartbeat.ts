@@ -25,23 +25,33 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let pulseCount = 0;
 
 /**
- * Pick a default destination for the pulse. Prefers Bob's wallet (registered
- * agent), falls back to Sovra's, then to a hardcoded burn-style address.
+ * Pick a destination for the pulse. Requires an actual registered agent's
+ * wallet — refuses to send to a burn address even on a misconfigured boot,
+ * because $0.000001 every 5min compounds and burning to 0xdEaD is real
+ * money for no purpose.
  */
-function pulseDestination(): string {
+function pulseDestination(): string | null {
   const agents = getAllAgents();
   const bob = agents.find((a) => a.name === 'bobIsAlive');
   if (bob?.wallet) return bob.wallet;
-  const first = agents[0];
+  const first = agents.find((a) => a.wallet);
   if (first?.wallet) return first.wallet;
-  // Last resort — Base USDC contract; safe sink, well-known address
-  return '0x000000000000000000000000000000000000dEaD';
+  return null; // no valid destination — caller must skip
 }
 
 async function tick(): Promise<void> {
   pulseCount++;
   const tickId = `pulse_${pulseCount}`;
   const to = pulseDestination();
+  if (!to) {
+    // Refuse to pulse without a real registered agent wallet — never burn.
+    await auditLog('treasury.pulse.skipped', {
+      tickId,
+      pulseNumber: pulseCount,
+      reason: 'no_registered_agent_wallet',
+    });
+    return;
+  }
   const memo = `LetAliceLead Pulse #${pulseCount}`;
 
   try {

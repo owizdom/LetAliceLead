@@ -3,7 +3,7 @@ import { AuditEntry } from "./api";
 export type Mood = "watching" | "thinking" | "deciding" | "paused";
 
 const MOOD_LABEL: Record<Mood, string> = {
-  watching: "Watching the book",
+  watching: "Reading the loan book",
   thinking: "Reasoning…",
   deciding: "Just decided",
   paused: "Lending paused",
@@ -20,7 +20,7 @@ const MOOD_VERB: Record<Mood, string> = {
 // reads naturally; some include "is", some don't (so "Alice just decided"
 // works without grammar gymnastics).
 const MOOD_PHRASE: Record<Mood, string> = {
-  watching: "is watching the book",
+  watching: "is reading her loan book",
   thinking: "is reasoning…",
   deciding: "just decided",
   paused: "paused lending",

@@ -567,6 +567,8 @@ function Cloud({ x, y, scale }: { x: number; y: number; scale: number }) {
 }
 
 function Mushroom({ x, groundTop }: { x: number; groundTop: number }) {
+  // Stylized rock — neutral palette, no Mario sprite. Two stacked dome
+  // shapes with a soft highlight to read as terrain.
   return (
     <div
       className="absolute"
@@ -577,30 +579,30 @@ function Mushroom({ x, groundTop }: { x: number; groundTop: number }) {
         height: OBSTACLE_H,
       }}
     >
-      <div
-        className="absolute left-1/2 -translate-x-1/2"
-        style={{
-          bottom: 0,
-          width: 12,
-          height: 16,
-          background: "linear-gradient(180deg, #FFFBF4 0%, #F0E7D3 100%)",
-          borderRadius: "4px 4px 0 0",
-          boxShadow: "inset -2px 0 0 rgba(0,0,0,0.10)",
-        }}
-      />
+      {/* Main rock body */}
       <div
         className="absolute left-0 right-0"
         style={{
-          top: 0,
-          height: 18,
-          background: "linear-gradient(180deg, #E04A4A 0%, #B03030 100%)",
-          borderRadius: "50% 50% 30% 30% / 70% 70% 30% 30%",
-          boxShadow: "inset -3px -3px 0 rgba(0,0,0,0.12)",
+          bottom: 0,
+          height: OBSTACLE_H,
+          background: "linear-gradient(180deg, #8C7E69 0%, #5A4F3F 100%)",
+          borderRadius: "50% 50% 18% 18% / 60% 60% 24% 24%",
+          boxShadow: "inset -2px -3px 0 rgba(0,0,0,0.18), inset 2px 2px 0 rgba(255,255,255,0.10)",
         }}
       />
-      <div className="absolute rounded-full" style={{ left: 5, top: 6, width: 4, height: 4, background: "#FFFBF4" }} />
-      <div className="absolute rounded-full" style={{ right: 6, top: 8, width: 3, height: 3, background: "#FFFBF4" }} />
-      <div className="absolute rounded-full" style={{ left: 14, top: 11, width: 3, height: 3, background: "#FFFBF4" }} />
+      {/* Highlight crease */}
+      <div
+        className="absolute"
+        style={{
+          left: "30%",
+          top: "20%",
+          width: "32%",
+          height: "8%",
+          background: "rgba(255, 251, 244, 0.18)",
+          borderRadius: "50%",
+          filter: "blur(1px)",
+        }}
+      />
     </div>
   );
 }
