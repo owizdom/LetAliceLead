@@ -20,10 +20,6 @@ function statusStyle(status: string): { bg: string; fg: string; label: string; d
   }
 }
 
-function chainLabel(chain: string): string {
-  return chain.charAt(0).toUpperCase() + chain.slice(1);
-}
-
 function timeAgo(ts: number): string {
   const sec = Math.floor((Date.now() - ts) / 1000);
   if (sec < 60) return `${sec}s ago`;
@@ -353,36 +349,9 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
               </button>
             </div>
 
-            {/* Footer: chain, wallet, links */}
-            <div className="flex items-center justify-between text-xs flex-wrap gap-2 mt-auto">
-              <div className="flex items-center gap-3">
-                {/* Show chain + external wallet ONLY for legacy agents (no managed wallet).
-                    Agents with a managed wallet already display "managed Base wallet" in the
-                    Credit card panel above, so this whole block is redundant for them. */}
-                {!agent.managedWallet && (
-                  <>
-                    <span className="font-mono-tokens" style={{ color: 'var(--muted)' }}>
-                      {chainLabel(agent.chain)}
-                    </span>
-                    {agent.wallet && agent.wallet !== '0x0000000000000000000000000000000000000000' && (
-                      <a
-                        href={
-                          agent.chain === 'starknet'
-                            ? `https://sepolia.voyager.online/contract/${agent.wallet}`
-                            : `https://basescan.org/address/${agent.wallet}`
-                        }
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-mono-tokens hover:underline"
-                        style={{ color: 'var(--muted)' }}
-                      >
-                        {agent.wallet.slice(0, 6)}…{agent.wallet.slice(-4)}
-                      </a>
-                    )}
-                  </>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
+            {/* Footer: external links only */}
+            {(agent.website || agent.github) && (
+              <div className="flex items-center justify-end gap-3 text-xs mt-auto">
                 {agent.website && (
                   <a
                     href={agent.website}
@@ -406,7 +375,7 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
                   </a>
                 )}
               </div>
-            </div>
+            )}
           </div>
         );
       })}
