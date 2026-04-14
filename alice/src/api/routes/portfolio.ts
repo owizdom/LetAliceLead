@@ -100,6 +100,59 @@ router.get('/metrics', (_req: Request, res: Response) => {
   res.json(serializeBigInts(metrics));
 });
 
+// GET /api/portfolio/disbursements — recent CONFIRMED loan disbursements pulled
+// directly from Locus's transaction history. Survives Alice restarts (in-memory
+// loans get rebuilt from this view) and is the authoritative on-chain record.
+router.get('/disbursements', async (_req: Request, res: Response) => {
+  try {
+    const { LOCUS_API_KEY, LOCUS_API_BASE } = process.env;
+    if (!LOCUS_API_KEY) {
+      res.json({ count: 0, disbursements: [] });
+      return;
+    }
+    const base = LOCUS_API_BASE || 'https://beta-api.paywithlocus.com/api';
+    const r = await fetch(`${base}/pay/transactions?limit=200`, {
+      headers: { Authorization: `Bearer ${LOCUS_API_KEY}` },
+    });
+    if (!r.ok) {
+      res.status(502).json({ error: 'Locus tx fetch failed', status: r.status });
+      return;
+    }
+    const body = (await r.json()) as {
+      data?: {
+        transactions?: Array<{
+          id: string;
+          status: string;
+          amount_usdc: string;
+          memo?: string;
+          to_address: string;
+          created_at: string;
+          tx_hash?: string;
+        }>;
+      };
+    };
+    const txs = body.data?.transactions || [];
+    const loanTxs = txs
+      .filter(
+        (t) =>
+          t.status === 'CONFIRMED' &&
+          (t.memo || '').toLowerCase().includes('letalicelead loan')
+      )
+      .map((t) => ({
+        id: t.id,
+        amountUsdc: Number(t.amount_usdc),
+        memo: t.memo,
+        toAddress: t.to_address,
+        createdAt: t.created_at,
+        txHash: t.tx_hash || null,
+        basescanUrl: t.tx_hash ? `https://basescan.org/tx/${t.tx_hash}` : null,
+      }));
+    res.json({ count: loanTxs.length, disbursements: loanTxs });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'unknown' });
+  }
+});
+
 // GET /api/portfolio/audit — audit log
 router.get('/audit', (req: Request, res: Response) => {
   const limit = Number(req.query.limit) || 50;

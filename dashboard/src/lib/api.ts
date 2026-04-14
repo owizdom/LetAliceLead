@@ -108,6 +108,22 @@ export async function fetchDashboard(): Promise<Dashboard> {
   return res.json();
 }
 
+export interface VerifiedDisbursement {
+  id: string;
+  amountUsdc: number;
+  memo?: string;
+  toAddress: string;
+  createdAt: string;
+  txHash: string | null;
+  basescanUrl: string | null;
+}
+
+export async function fetchVerifiedDisbursements(): Promise<{ count: number; disbursements: VerifiedDisbursement[] }> {
+  const res = await fetch(`${API_BASE}/api/portfolio/disbursements`);
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  return res.json();
+}
+
 export async function fetchAuditLog(limit = 50): Promise<{ count: number; riskCycles: number; entries: AuditEntry[] }> {
   const res = await fetch(`${API_BASE}/api/portfolio/audit?limit=${limit}`);
   if (!res.ok) throw new Error(`API error: ${res.status}`);

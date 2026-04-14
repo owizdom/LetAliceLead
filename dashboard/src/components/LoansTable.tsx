@@ -1,9 +1,11 @@
 "use client";
 
-import { Loan, CollateralPledge, weiToUSDC, formatUSD } from "@/lib/api";
+import { Loan, CollateralPledge, RegisteredAgentData, weiToUSDC, formatUSD } from "@/lib/api";
 
 interface LoansTableProps {
   loans: Loan[];
+  /** Optional registry — when provided, the borrower cell shows the agent name */
+  agents?: RegisteredAgentData[];
 }
 
 const CHAIN_ICON: Record<string, string> = {
@@ -40,8 +42,11 @@ function statusStyle(status: string): { bg: string; fg: string; label: string } 
   }
 }
 
-export default function LoansTable({ loans }: LoansTableProps) {
+export default function LoansTable({ loans, agents }: LoansTableProps) {
   const sorted = [...loans].sort((a, b) => b.originatedAt - a.originatedAt);
+  const nameById = new Map<number, string>(
+    (agents || []).map((a) => [a.agentId, a.name])
+  );
 
   if (sorted.length === 0) {
     return (
@@ -111,7 +116,7 @@ export default function LoansTable({ loans }: LoansTableProps) {
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2">
                       <div className="font-medium" style={{ color: "var(--text)" }}>
-                        Agent #{loan.borrowerAgentId}
+                        {nameById.get(loan.borrowerAgentId) || `Agent #${loan.borrowerAgentId}`}
                       </div>
                       {loan.txHash && (
                         <a

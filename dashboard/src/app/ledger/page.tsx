@@ -8,9 +8,10 @@ import LoansTable from "@/components/LoansTable";
 import ActivityFeed from "@/components/ActivityFeed";
 import FundBanner from "@/components/FundBanner";
 import PriceTicker from "@/components/PriceTicker";
+import VerifiedDisbursements from "@/components/VerifiedDisbursements";
 
 export default function LedgerPage() {
-  const { dashboard, auditEntries } = useAlice();
+  const { dashboard, auditEntries, registryAgents } = useAlice();
 
   const allLoans = dashboard
     ? [
@@ -25,6 +26,8 @@ export default function LedgerPage() {
       <PageTitle eyebrow="Ledger" title="Loan book" />
 
       <PriceTicker ticker={dashboard?.priceTicker} />
+
+      <VerifiedDisbursements />
 
       <FundBanner
         bankWallet={dashboard?.bankWallet}
@@ -49,7 +52,7 @@ export default function LedgerPage() {
 
       <section className="mb-16">
         <SectionHeading label="Ledger" title={`Loan book (${allLoans.length})`} />
-        <LoansTable loans={allLoans} />
+        <LoansTable loans={allLoans} agents={registryAgents} />
       </section>
 
       <section className="mb-16">
