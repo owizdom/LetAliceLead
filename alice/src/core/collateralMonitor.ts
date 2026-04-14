@@ -25,7 +25,11 @@ import {
 } from '../types/loan';
 
 const TICK_MS = Number(process.env.COLLATERAL_TICK_MS) || 120_000;
-const STALE_PRICE_MS = 90_000;
+// 5 min cache — public CoinGecko rate-limits aggressively at ~10 req/min;
+// STRK + ETH + Sovra polling can blow past that on a fast cycle.
+const STALE_PRICE_MS = 5 * 60_000;
+// When direct CoinGecko 429's, freeze it for this window before retrying.
+const DIRECT_BACKOFF_MS = 60_000;
 
 let timer: ReturnType<typeof setInterval> | null = null;
 
@@ -38,6 +42,8 @@ const COINGECKO_IDS: Record<string, string> = {
 
 // In-memory price cache used by both the monitor and the price-ticker route.
 const priceCache = new Map<string, { usd: number; usd24hChange?: number; fetchedAt: number }>();
+// Track when public CoinGecko last 429'd so we don't hammer it.
+let directBackoffUntil = 0;
 
 export function getCachedPrice(asset: CollateralAsset): { usd: number; usd24hChange?: number; fetchedAt: number } | undefined {
   return priceCache.get(asset);
@@ -103,35 +109,46 @@ export async function fetchUsdPrice(asset: CollateralAsset): Promise<number> {
     // fall through to direct path
   }
 
-  // Path 2: Direct public CoinGecko (free, no auth)
+  // Path 2: Direct public CoinGecko (free, no auth). Skip if we're in a
+  // 429 backoff window; serve stale cache instead.
+  if (Date.now() < directBackoffUntil) {
+    return cached?.usd ?? 0;
+  }
   try {
     const r = await fetch(
       `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true`,
       { headers: { accept: 'application/json' } }
     );
+    if (r.status === 429) {
+      directBackoffUntil = Date.now() + DIRECT_BACKOFF_MS;
+      await logger.warn('collateral.price.direct_rate_limited', { asset, backoffMs: DIRECT_BACKOFF_MS });
+      return cached?.usd ?? 0;
+    }
     if (!r.ok) {
       await logger.warn('collateral.price.direct_failed', { asset, status: r.status });
-      return 0;
+      return cached?.usd ?? 0;
     }
     const json = (await r.json()) as Record<string, { usd?: number; usd_24h_change?: number }>;
     const entry = json?.[id];
     const usd = typeof entry?.usd === 'number' ? entry.usd : 0;
     const usd24hChange =
       typeof entry?.usd_24h_change === 'number' ? entry.usd_24h_change : undefined;
-    priceCache.set(asset, { usd, usd24hChange, fetchedAt: Date.now() });
-    await auditLog('coingecko.direct.called', {
-      asset,
-      id,
-      usd,
-      via: 'public-free-endpoint',
-    });
-    return usd;
+    if (usd > 0) {
+      priceCache.set(asset, { usd, usd24hChange, fetchedAt: Date.now() });
+      await auditLog('coingecko.direct.called', {
+        asset,
+        id,
+        usd,
+        via: 'public-free-endpoint',
+      });
+    }
+    return usd || (cached?.usd ?? 0);
   } catch (err) {
     await logger.warn('collateral.price.direct_error', {
       asset,
       error: err instanceof Error ? err.message : String(err),
     });
-    return 0;
+    return cached?.usd ?? 0;
   }
 }
 
