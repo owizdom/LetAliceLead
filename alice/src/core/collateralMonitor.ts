@@ -41,7 +41,71 @@ const COINGECKO_IDS: Record<string, string> = {
 };
 
 // In-memory price cache used by both the monitor and the price-ticker route.
+// Persisted to ~/.config/alice/prices.json on every successful fetch so a
+// fresh Railway container doesn't show $0.00 while waiting for its first
+// CoinGecko response (which often hits a rate limit on shared IPs).
 const priceCache = new Map<string, { usd: number; usd24hChange?: number; fetchedAt: number }>();
+const PRICE_STORE_PATH = process.env.ALICE_PRICE_STORE_PATH ||
+  (() => {
+    // Lazy import os/path to avoid top-level deps in case of weird bundles
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { join } = require('path');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { homedir } = require('os');
+    return join(homedir(), '.config', 'alice', 'prices.json');
+  })();
+
+// Bootstrap fallback prices — used when both Locus + direct CoinGecko fail
+// AND the on-disk cache is empty (first-ever boot of a fresh container).
+// These get overwritten the moment a real fetch lands.
+const BOOTSTRAP_PRICES: Record<string, { usd: number; usd24hChange?: number }> = {
+  STRK: { usd: 0.033, usd24hChange: 0 },
+  ETH:  { usd: 2350,  usd24hChange: 0 },
+  USDC: { usd: 1.0,   usd24hChange: 0 },
+};
+
+function loadCacheFromDisk(): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs');
+    if (!fs.existsSync(PRICE_STORE_PATH)) return;
+    const data = JSON.parse(fs.readFileSync(PRICE_STORE_PATH, 'utf8')) as Record<
+      string,
+      { usd: number; usd24hChange?: number; fetchedAt: number }
+    >;
+    for (const [asset, entry] of Object.entries(data)) {
+      priceCache.set(asset, entry);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function saveCacheToDisk(): void {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path');
+    fs.mkdirSync(path.dirname(PRICE_STORE_PATH), { recursive: true });
+    const obj: Record<string, unknown> = {};
+    for (const [k, v] of priceCache.entries()) obj[k] = v;
+    fs.writeFileSync(PRICE_STORE_PATH, JSON.stringify(obj, null, 2), 'utf8');
+  } catch {
+    /* ignore */
+  }
+}
+
+// Hydrate from disk + warm the cache with bootstrap fallbacks for any
+// asset still missing. The fetch logic always prefers cached over the
+// bootstrap value once a real fetch has landed.
+loadCacheFromDisk();
+for (const [asset, b] of Object.entries(BOOTSTRAP_PRICES)) {
+  if (!priceCache.has(asset)) {
+    priceCache.set(asset, { usd: b.usd, usd24hChange: b.usd24hChange, fetchedAt: 0 });
+  }
+}
+
 // Track when public CoinGecko last 429'd so we don't hammer it.
 let directBackoffUntil = 0;
 
@@ -97,6 +161,7 @@ export async function fetchUsdPrice(asset: CollateralAsset): Promise<number> {
       typeof entry?.usd_24h_change === 'number' ? entry.usd_24h_change : undefined;
     if (usd > 0) {
       priceCache.set(asset, { usd, usd24hChange, fetchedAt: Date.now() });
+      saveCacheToDisk();
       return usd;
     }
   } catch (err) {
@@ -135,6 +200,7 @@ export async function fetchUsdPrice(asset: CollateralAsset): Promise<number> {
       typeof entry?.usd_24h_change === 'number' ? entry.usd_24h_change : undefined;
     if (usd > 0) {
       priceCache.set(asset, { usd, usd24hChange, fetchedAt: Date.now() });
+      saveCacheToDisk();
       await auditLog('coingecko.direct.called', {
         asset,
         id,
@@ -142,14 +208,40 @@ export async function fetchUsdPrice(asset: CollateralAsset): Promise<number> {
         via: 'public-free-endpoint',
       });
     }
-    return usd || (cached?.usd ?? 0);
+    if (usd > 0) return usd;
   } catch (err) {
     await logger.warn('collateral.price.direct_error', {
       asset,
       error: err instanceof Error ? err.message : String(err),
     });
-    return cached?.usd ?? 0;
   }
+
+  // Path 3: Coinbase public spot price (no rate-limiting on shared IPs).
+  // Symbol map for the few we care about; STRK isn't on Coinbase so it
+  // stays on the cached/bootstrap value when CoinGecko is rate-limited.
+  const COINBASE_SYMBOL: Record<string, string> = { ETH: 'ETH', USDC: 'USDC' };
+  if (COINBASE_SYMBOL[asset]) {
+    try {
+      const r = await fetch(
+        `https://api.coinbase.com/v2/prices/${COINBASE_SYMBOL[asset]}-USD/spot`,
+        { headers: { accept: 'application/json' } }
+      );
+      if (r.ok) {
+        const json = (await r.json()) as { data?: { amount?: string } };
+        const usd = Number(json?.data?.amount);
+        if (Number.isFinite(usd) && usd > 0) {
+          priceCache.set(asset, { usd, fetchedAt: Date.now() });
+          saveCacheToDisk();
+          await auditLog('coinbase.spot.called', { asset, usd, via: 'coinbase-fallback' });
+          return usd;
+        }
+      }
+    } catch {
+      /* ignore — fall through to cached/bootstrap */
+    }
+  }
+
+  return cached?.usd ?? priceCache.get(asset)?.usd ?? 0;
 }
 
 /**
