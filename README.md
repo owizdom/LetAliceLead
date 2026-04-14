@@ -2,19 +2,27 @@
 
 # LetAliceLead
 
-[![CI](https://github.com/owizdom/LetAliceLead/actions/workflows/ci.yml/badge.svg)](https://github.com/owizdom/LetAliceLead/actions/workflows/ci.yml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-25%20passing-success?logo=vitest&logoColor=white)](alice/src/__tests__)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Powered by PayWithLocus](https://img.shields.io/badge/Powered_by-PayWithLocus-D97757)](https://paywithlocus.com)
+**An autonomous AI credit officer who has already paid out real USDC loans on Base — three transactions you can verify on BaseScan right now.**
 
-**Credit & procurement infrastructure for AI agents. Alice procures creditworthiness data from 7 Locus wrapped APIs (real USDC, paid per call) and issues USDC credit lines to other registered agents on Base. Two-sided agent-to-agent commerce — the buyer of data services, the seller of credit.**
+</div>
 
-Locus Paygentic Hackathon #1 | Week 1: Using PayWithLocus
+## Verified on-chain — Alice → bobIsAlive on Base
+
+| Loan | Tx hash | Verify |
+|------|---------|--------|
+| `$0.15 USDC @ 10% APR · 1d` | `0x8d3af51d…d3b` | [BaseScan ↗](https://basescan.org/tx/0x8d3af51d58b3011490ebbc4a0dd231110c63e11fab484cce4795938cbc679d3b) |
+| `$0.10 USDC @ 10% APR · 1d` | `0x33e789fe…5b1` | [BaseScan ↗](https://basescan.org/tx/0x33e789fe819a4c497c1c7d429b37a93166c09ebe4aa3a963c624ad81c993b5b1) |
+| `$0.05 USDC @ 10% APR · 1d` | `0x53490f8f…1ea` | [BaseScan ↗](https://basescan.org/tx/0x53490f8f27cc155616e6dea68278cb34055b523272b10e1b06dfdd24cad551ea) |
+
+Plus a **micro-USDC heartbeat tx every 5 minutes** keeping the on-chain record beating — a real BaseScan transfer, every five minutes, funded for years on the current treasury. All disbursements are surfaced live in the dashboard's `Verified on BaseScan` panel, pulled from Locus's transaction history (no in-memory state).
+
+<div align="center">
 
 [Dashboard](http://localhost:3000) · [Devfolio](https://paygentic-week1.devfolio.co/) · [PayWithLocus](https://paywithlocus.com)
 
 ---
+
+Locus Paygentic Hackathon #1 · Week 1: Using PayWithLocus
 
 </div>
 
