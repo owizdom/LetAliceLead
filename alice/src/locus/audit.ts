@@ -1,8 +1,20 @@
 /**
- * In-memory audit log — replaces EigenDA.
- * Provides the same interface but stores everything locally.
+ * Audit log — in-memory ring buffer + append-only JSONL on disk.
+ *
+ * Disk path: ALICE_AUDIT_PATH env, defaults to ~/.config/alice/audit.jsonl
+ * (one JSON object per line). On boot we hydrate the in-memory ring from
+ * the tail of the file so dashboards see a contiguous history across
+ * restarts. Every write fires a fire-and-forget appendFile.
+ *
+ * Why JSONL not JSON: append-only, crash-safe, easy grep, never has to
+ * rewrite the whole file. Loan store uses JSON because it's a small
+ * working set; the audit log can grow to hundreds of MB and JSON would
+ * choke.
  */
 
+import { homedir } from 'os';
+import { join, dirname } from 'path';
+import { existsSync, mkdirSync, readFileSync, appendFile } from 'fs';
 import { getApiCost } from './pricing';
 
 interface AuditEntry {
@@ -17,7 +29,43 @@ export interface ProcurementSummary {
   byProvider: Record<string, { calls: number; spendUsdc: number; usdcPerCall: number }>;
 }
 
+const AUDIT_PATH = process.env.ALICE_AUDIT_PATH || join(homedir(), '.config', 'alice', 'audit.jsonl');
+const MAX_IN_MEMORY = 10_000;
+const HYDRATE_TAIL = 10_000;
+
 const auditEntries: AuditEntry[] = [];
+
+// Hydrate the in-memory ring from disk on module import. Best-effort —
+// if the file is missing or corrupt, we start clean.
+function hydrateFromDisk(): void {
+  try {
+    if (!existsSync(AUDIT_PATH)) return;
+    const lines = readFileSync(AUDIT_PATH, 'utf8').split('\n').filter(Boolean);
+    const tail = lines.slice(-HYDRATE_TAIL);
+    for (const line of tail) {
+      try {
+        const e = JSON.parse(line) as AuditEntry;
+        if (e && typeof e.timestamp === 'number' && typeof e.action === 'string') {
+          auditEntries.push(e);
+        }
+      } catch {
+        /* skip corrupt line */
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+}
+hydrateFromDisk();
+
+function ensureDir(): void {
+  try {
+    mkdirSync(dirname(AUDIT_PATH), { recursive: true });
+  } catch {
+    /* ignore */
+  }
+}
+ensureDir();
 
 export async function auditLog(action: string, data: unknown): Promise<string | null> {
   const entry: AuditEntry = {
@@ -28,10 +76,14 @@ export async function auditLog(action: string, data: unknown): Promise<string | 
 
   auditEntries.push(entry);
 
-  // Keep last 10000 entries
-  if (auditEntries.length > 10000) {
-    auditEntries.splice(0, auditEntries.length - 10000);
+  // Trim in-memory ring; disk file is append-only and never truncated here
+  if (auditEntries.length > MAX_IN_MEMORY) {
+    auditEntries.splice(0, auditEntries.length - MAX_IN_MEMORY);
   }
+
+  // Fire-and-forget JSONL append. Errors swallowed — losing one audit
+  // line to a transient FS hiccup must not break the call site.
+  appendFile(AUDIT_PATH, JSON.stringify(entry) + '\n', () => {});
 
   return null;
 }

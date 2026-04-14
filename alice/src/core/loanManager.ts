@@ -422,6 +422,10 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
     ? 'managed'
     : 'external';
 
+  // Real on-chain disbursement only — no notional fallback. Every loan
+  // either lands on Base with a verifiable tx hash or gets rejected.
+  // The previous fallback created off-chain "loans" that the dashboard
+  // displayed alongside real disbursements — a credibility leak.
   let txId: string;
   try {
     txId = await transferUSDC(
@@ -429,27 +433,28 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
       app.requestedAmount,
       `LetAliceLead Loan (${disbursementMode}): ${formatUSDC(app.requestedAmount)} @ ${effectiveAPR}% APR for ${termDays}d to agent #${app.agentId}`
     );
-    await logger.info('loan.funding.onchain', { agentId: app.agentId, txId, mode: 'real', disbursedTo: disbursementAddress, disbursementMode });
+    await logger.info('loan.funding.onchain', {
+      agentId: app.agentId,
+      txId,
+      mode: 'real',
+      disbursedTo: disbursementAddress,
+      disbursementMode,
+    });
   } catch (err) {
     const errMsg = String(err);
-    // If Locus wallet is unfunded, fall back to notional loan (dev/demo mode)
-    // Real on-chain transfer resumes automatically when the wallet is funded
-    if (errMsg.includes('Insufficient USDC balance') || errMsg.includes('403')) {
-      txId = `notional_${generateLoanId()}`;
-      await logger.info('loan.funding.notional', {
-        agentId: app.agentId,
-        txId,
-        mode: 'notional',
-        note: 'Locus wallet unfunded — loan recorded but USDC not transferred on-chain',
-      });
-    } else {
-      await logger.error('loan.funding.failed', { agentId: app.agentId, error: errMsg });
-      return {
-        approved: false,
-        rejectionReason: 'Loan funding transfer failed via Locus',
-        creditScore,
-      };
-    }
+    await logger.error('loan.funding.failed', { agentId: app.agentId, error: errMsg });
+    await auditLog('loan.rejected', {
+      agentId: app.agentId,
+      reason: 'disbursement_failed',
+      error: errMsg.slice(0, 200),
+    });
+    return {
+      approved: false,
+      rejectionReason: errMsg.includes('Insufficient USDC balance')
+        ? 'Treasury wallet has insufficient USDC for this disbursement.'
+        : 'Loan funding transfer failed via Locus.',
+      creditScore,
+    };
   }
 
   // 11. Record the loan
@@ -477,27 +482,26 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
 
   // Resolve the on-chain Base tx hash so the dashboard can render a
   // BaseScan link. Locus moves QUEUED → CONFIRMED in ~5–60s on Base,
-  // so we poll for ~3 minutes before giving up.
-  if (!txId.startsWith('notional_')) {
-    void (async () => {
-      const start = Date.now();
-      while (Date.now() - start < 180_000) {
-        const hash = await getOnChainHash(txId);
-        if (hash) {
-          loan.txHash = hash;
-          saveLoans();
-          await auditLog('loan.tx_hash_resolved', {
-            loanId: loan.id,
-            locusTxId: txId,
-            txHash: hash,
-            basescan: `https://basescan.org/tx/${hash}`,
-          });
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 4000));
+  // so we poll for ~3 minutes before giving up. Every loan is real
+  // on-chain at this point — no notional path remains.
+  void (async () => {
+    const start = Date.now();
+    while (Date.now() - start < 180_000) {
+      const hash = await getOnChainHash(txId);
+      if (hash) {
+        loan.txHash = hash;
+        saveLoans();
+        await auditLog('loan.tx_hash_resolved', {
+          loanId: loan.id,
+          locusTxId: txId,
+          txHash: hash,
+          basescan: `https://basescan.org/tx/${hash}`,
+        });
+        return;
       }
-    })();
-  }
+      await new Promise((r) => setTimeout(r, 4000));
+    }
+  })();
 
   // Pledge collateral if the application included a pledge. The monitor
   // populates the live pricing fields on the loan in-place.
