@@ -52,8 +52,8 @@
   --rose-deep: #B04B44;
 
   /* Alice's moods — warm + simple colors */
-  --mood-chilling: var(--mint-deep);
-  --mood-chilling-bg: var(--mint);
+  --mood-watching: var(--mint-deep);
+  --mood-watching-bg: var(--mint);
   --mood-thinking: var(--accent);
   --mood-thinking-bg: var(--peach);
   --mood-deciding: var(--accent-deep);
@@ -198,7 +198,7 @@ body > * { position: relative; z-index: 2; }
   animation-duration: 3.2s;
 }
 
-.alice-face.chilling {
+.alice-face.watching {
   /* default peach — keep warm */
 }
 
@@ -291,7 +291,7 @@ body > * { position: relative; z-index: 2; }
   color: var(--text-soft);
 }
 
-.pill-mood-chilling  { background: color-mix(in srgb, var(--mint) 40%, var(--surface-1)); border-color: var(--mint-deep); color: var(--mint-deep); }
+.pill-mood-watching  { background: color-mix(in srgb, var(--mint) 40%, var(--surface-1)); border-color: var(--mint-deep); color: var(--mint-deep); }
 .pill-mood-thinking  { background: var(--peach-soft); border-color: var(--accent); color: var(--accent-deep); }
 .pill-mood-deciding  { background: var(--peach); border-color: var(--accent-deep); color: var(--accent-deep); }
 .pill-mood-paused    { background: color-mix(in srgb, var(--rose) 45%, var(--surface-1)); border-color: var(--rose-deep); color: var(--rose-deep); }

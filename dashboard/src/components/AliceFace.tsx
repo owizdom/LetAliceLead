@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AuditEntry } from "@/lib/api";
-import { Mood, moodLabel } from "@/lib/aliceState";
+import { Mood, moodPhrase } from "@/lib/aliceState";
 
 interface AliceFaceProps {
   mood: Mood;
@@ -53,9 +53,9 @@ export default function AliceFace({ mood, auditEntries }: AliceFaceProps) {
             className="font-display italic font-bold text-[40px] sm:text-[56px] leading-[1] tracking-tight"
             style={{ color: "var(--text)" }}
           >
-            Alice is{" "}
+            Alice{" "}
             <span style={{ color: `var(--mood-${mood})` }}>
-              {moodLabel(mood).replace("…", "")}
+              {moodPhrase(mood).replace("…", "")}
               {mood === "thinking" && <AnimatedDots />}
             </span>
           </motion.h2>

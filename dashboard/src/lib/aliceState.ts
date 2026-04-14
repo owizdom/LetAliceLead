@@ -1,20 +1,34 @@
 import { AuditEntry } from "./api";
 
-export type Mood = "chilling" | "thinking" | "deciding" | "paused";
+export type Mood = "watching" | "thinking" | "deciding" | "paused";
 
 const MOOD_LABEL: Record<Mood, string> = {
-  chilling: "Chilling",
-  thinking: "On it…",
-  deciding: "Just picked",
-  paused: "Taking a break",
+  watching: "Watching the book",
+  thinking: "Reasoning…",
+  deciding: "Just decided",
+  paused: "Lending paused",
 };
 
 const MOOD_VERB: Record<Mood, string> = {
-  chilling: "watching the book",
+  watching: "watching the book",
   thinking: "thinking",
   deciding: "deciding",
   paused: "paused lending",
 };
+
+// Phrases used after the "Alice " word in the AliceFace headline. Each
+// reads naturally; some include "is", some don't (so "Alice just decided"
+// works without grammar gymnastics).
+const MOOD_PHRASE: Record<Mood, string> = {
+  watching: "is watching the book",
+  thinking: "is reasoning…",
+  deciding: "just decided",
+  paused: "paused lending",
+};
+
+export function moodPhrase(m: Mood): string {
+  return MOOD_PHRASE[m];
+}
 
 const TOOL_VERB: Record<string, string> = {
   rescore_agent: "rescored",
@@ -42,7 +56,7 @@ export function deriveMood(audit: AuditEntry[], paused: boolean, now = Date.now(
     if (now - lastBegin.timestamp < 30_000) return "thinking";
   }
   if (lastAction && now - lastAction.timestamp < 6_000) return "deciding";
-  return "chilling";
+  return "watching";
 }
 
 export function moodLabel(m: Mood): string {
