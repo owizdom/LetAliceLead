@@ -7,6 +7,7 @@
  */
 
 import { wrappedCall } from './adapter';
+import { auditLog } from './audit';
 import { CreditFactors } from '../types';
 
 // Deterministic seed from wallet address — same wallet always gets same profile
@@ -19,13 +20,41 @@ function walletSeed(wallet: string): number {
 }
 
 /**
+ * Timed wrapper around wrappedCall — emits per-API-call audit events.
+ * Each call produces `locus.api.<provider>.called` event with latency and status,
+ * which the Signal Loom visualization consumes.
+ */
+async function timedCall<T>(provider: string, endpoint: string, body: unknown): Promise<T> {
+  const start = Date.now();
+  try {
+    const result = await wrappedCall<T>(provider, endpoint, body);
+    await auditLog(`locus.api.${provider}.called`, {
+      provider,
+      endpoint,
+      latencyMs: Date.now() - start,
+      success: true,
+    });
+    return result;
+  } catch (err) {
+    await auditLog(`locus.api.${provider}.called`, {
+      provider,
+      endpoint,
+      latencyMs: Date.now() - start,
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    throw err;
+  }
+}
+
+/**
  * Fetch identity data for an agent using Locus wrapped APIs.
  * Uses Exa search for web presence + CoinGecko for market context.
  */
 export async function fetchIdentityData(agentId: number, agentWallet: string): Promise<CreditFactors['identity']> {
   try {
     const [searchResult, _marketCtx] = await Promise.all([
-      wrappedCall<{ results?: Array<{ title?: string; url?: string; publishedDate?: string }> }>(
+      timedCall<{ results?: Array<{ title?: string; url?: string; publishedDate?: string }> }>(
         'exa', 'search', {
           query: `AI agent wallet ${agentWallet} reputation history`,
           numResults: 5,
@@ -33,7 +62,7 @@ export async function fetchIdentityData(agentId: number, agentWallet: string): P
         }
       ),
       // CoinGecko for market context (demonstrates breadth of API usage)
-      wrappedCall<unknown>('coingecko', 'simple-price', {
+      timedCall<unknown>('coingecko', 'simple-price', {
         ids: 'usd-coin',
         vs_currencies: 'usd',
       }).catch(() => null),
@@ -79,14 +108,14 @@ export async function fetchIdentityData(agentId: number, agentWallet: string): P
 export async function fetchReputationData(agentId: number, agentWallet: string): Promise<CreditFactors['reputation']> {
   try {
     const [braveResult, tavilyResult] = await Promise.all([
-      wrappedCall<{ web?: { results?: Array<{ title?: string; description?: string }> } }>(
+      timedCall<{ web?: { results?: Array<{ title?: string; description?: string }> } }>(
         'brave', 'web-search', {
           q: `"${agentWallet}" OR "agent ${agentId}" transaction history reputation`,
           count: 10,
         }
       ),
       // Tavily for AI-optimized search (additional provider)
-      wrappedCall<{ results?: Array<{ content?: string }> }>(
+      timedCall<{ results?: Array<{ content?: string }> }>(
         'tavily', 'search', {
           query: `AI agent ${agentWallet} reliability score`,
           max_results: 5,
@@ -103,7 +132,7 @@ export async function fetchReputationData(agentId: number, agentWallet: string):
 
     if (mentionCount > 0) {
       try {
-        const sentimentResult = await wrappedCall<{ choices?: Array<{ message?: { content?: string } }> }>(
+        const sentimentResult = await timedCall<{ choices?: Array<{ message?: { content?: string } }> }>(
           'perplexity', 'chat', {
             model: 'sonar',
             messages: [{
@@ -150,14 +179,14 @@ export async function fetchFinancialData(
 ): Promise<CreditFactors['financial']> {
   try {
     const [explorerResult, _alphaResult] = await Promise.all([
-      wrappedCall<{ markdown?: string; content?: string }>(
+      timedCall<{ markdown?: string; content?: string }>(
         'firecrawl', 'scrape', {
           url: `https://basescan.org/address/${agentWallet}`,
           formats: ['markdown'],
         }
       ),
       // Alpha Vantage for broader financial context (additional provider)
-      wrappedCall<unknown>('alphavantage', 'global-quote', {
+      timedCall<unknown>('alphavantage', 'global-quote', {
         symbol: 'USDC',
       }).catch(() => null),
     ]);
