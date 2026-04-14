@@ -4,6 +4,7 @@ import { initAnthropic } from '../adapters/anthropic';
 import { initTreasury } from '../core/treasury';
 import { startRiskMonitor, stopRiskMonitor } from '../core/riskMonitor';
 import { startAgentLoop, stopAgentLoop } from '../core/agentLoop';
+import { startCollateralMonitor, stopCollateralMonitor } from '../core/collateralMonitor';
 import { startLiveUpdater, stopLiveUpdater } from '../registry/liveUpdater';
 import { createServer } from '../api/server';
 import { logger } from '../utils/logger';
@@ -38,6 +39,11 @@ export async function createAgent(config: AgentConfig) {
 
   await logger.info('agent.init.live_updater', {});
   startLiveUpdater();
+
+  // Cross-chain collateral monitor — every ~120s re-prices each active loan's
+  // pledged collateral via Locus CoinGecko, recomputes LTV + health.
+  await logger.info('agent.init.collateral_monitor', {});
+  startCollateralMonitor();
 
   // Alice as an actual agent — Claude reasons over the full book each tick and chooses
   // one tool to invoke (rescore, adjust rate, pause, note, wait). Not a cron, an agent.
@@ -80,6 +86,7 @@ export async function createAgent(config: AgentConfig) {
     stopRiskMonitor();
     stopLiveUpdater();
     stopAgentLoop();
+    stopCollateralMonitor();
 
     server.close((err) => {
       if (err) {

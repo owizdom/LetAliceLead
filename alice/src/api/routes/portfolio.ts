@@ -6,6 +6,9 @@ import { getCatalog } from '../../locus/pricing';
 import { serializeBigInts } from '../../utils/crypto';
 import { PortfolioDashboard } from '../../types';
 import { getBalance } from '../../locus/adapter';
+import { getActiveLoans } from '../../core/loanManager';
+import { getCachedPrice, getAllCachedPrices } from '../../core/collateralMonitor';
+import { getAllAgents } from '../../registry/agents';
 
 const router = Router();
 const startTime = Date.now();
@@ -25,10 +28,50 @@ router.get('/', async (_req: Request, res: Response) => {
       // Locus may not be configured
     }
 
+    // Cross-chain collateral aggregates
+    const activeLoans = getActiveLoans();
+    const collateralized = activeLoans.filter((l) => l.collateral);
+    const crossChainCollateralUsd = collateralized.reduce(
+      (sum, l) => sum + (l.collateral?.pricedUsdc || 0),
+      0
+    );
+    const averageLtvPct =
+      collateralized.length > 0
+        ? collateralized.reduce((sum, l) => sum + (l.collateral?.ltvPct || 0), 0) /
+          collateralized.length
+        : 0;
+    const marginCallCount = collateralized.filter(
+      (l) => l.collateral?.health === 'margin_call'
+    ).length;
+
+    // Live price ticker — STRK + ETH from CoinGecko cache, Sovra from registry liveState
+    const strk = getCachedPrice('STRK');
+    const eth = getCachedPrice('ETH');
+    const sovraAgent = getAllAgents().find((a) => a.liveState?.source === 'sovra');
+    const sovraData = sovraAgent?.liveState?.data as
+      | { auction?: { topBid?: { amountUsdc?: number }; nextSettleAt?: number; bidCount?: number } }
+      | undefined;
+
+    const priceTicker = {
+      strkUsd: strk?.usd ?? 0,
+      strkChange24h: strk?.usd24hChange ?? null,
+      ethUsd: eth?.usd ?? 0,
+      ethChange24h: eth?.usd24hChange ?? null,
+      sovraTopBidUsdc: sovraData?.auction?.topBid?.amountUsdc ?? null,
+      sovraBidCount: sovraData?.auction?.bidCount ?? 0,
+      sovraNextSettleAt: sovraData?.auction?.nextSettleAt ?? null,
+      pricesAt: Math.max(strk?.fetchedAt ?? 0, eth?.fetchedAt ?? 0),
+    };
+
     const dashboard: PortfolioDashboard & {
       procurement: ProcurementSummary;
       vendorCatalog: ReturnType<typeof getCatalog>;
       latestMonologue: ReturnType<typeof getMostRecentMonologue>;
+      crossChainCollateralUsd: number;
+      averageLtvPct: number;
+      marginCallCount: number;
+      priceTicker: typeof priceTicker;
+      pricesByAsset: ReturnType<typeof getAllCachedPrices>;
     } = {
       portfolio,
       metrics,
@@ -37,6 +80,11 @@ router.get('/', async (_req: Request, res: Response) => {
       procurement,
       vendorCatalog: getCatalog(),
       latestMonologue: getMostRecentMonologue(),
+      crossChainCollateralUsd,
+      averageLtvPct,
+      marginCallCount,
+      priceTicker,
+      pricesByAsset: getAllCachedPrices(),
     };
 
     res.json(serializeBigInts(dashboard));

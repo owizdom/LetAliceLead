@@ -83,9 +83,29 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
     termDays: app.proposedTermDays,
   });
 
-  // 1. Compute credit score via Locus wrapped APIs
+  // 1. Compute credit score via Locus wrapped APIs.
+  // If the agent has a recent registry-provided score (seeded or rescored within
+  // the last 30min), reuse it to avoid charging Locus per application.
   const existingDebt = getBorrowerDebt(app.agentId);
-  const creditResult = await computeCreditScore(app.agentId, app.agentWallet, existingDebt);
+  const { getAgent: _getAgentForScore } = await import('../registry/agents');
+  const cached = _getAgentForScore(app.agentId);
+  const cachedFresh =
+    cached?.creditScore !== undefined &&
+    cached?.scoredAt !== undefined &&
+    Date.now() - cached.scoredAt < 30 * 60_000;
+
+  const creditResult = cachedFresh
+    ? {
+        score: {
+          totalScore: cached!.creditScore!,
+          identityScore: cached!.scoreBreakdown?.identityScore ?? 0,
+          reputationScore: cached!.scoreBreakdown?.reputationScore ?? 0,
+          financialScore: cached!.scoreBreakdown?.financialScore ?? 0,
+          reasoning:
+            cached!.scoreBreakdown?.reasoning ?? `Reused cached score from ${new Date(cached!.scoredAt!).toISOString()}.`,
+        },
+      }
+    : await computeCreditScore(app.agentId, app.agentWallet, existingDebt);
   const creditScore = creditResult.score.totalScore;
 
   // 2. Check lending halt
@@ -259,6 +279,20 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
 
   loans.set(loan.id, loan);
   deployCapital(app.requestedAmount);
+
+  // Pledge collateral if the application included a pledge. The monitor
+  // populates the live pricing fields on the loan in-place.
+  if (app.collateral) {
+    try {
+      const { pledgeCollateral } = await import('./collateralMonitor');
+      await pledgeCollateral(loan.id, app.collateral);
+    } catch (err) {
+      await logger.warn('loan.collateral_pledge_failed', {
+        loanId: loan.id,
+        error: String(err),
+      });
+    }
+  }
 
   await auditLog('loan.originated', {
     loanId: loan.id,

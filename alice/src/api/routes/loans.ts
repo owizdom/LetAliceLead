@@ -14,7 +14,7 @@ const router = Router();
 // POST /api/loans/request — apply for a loan
 router.post('/request', verifyAgent, async (req: Request, res: Response) => {
   try {
-    const { agentId, agentWallet, amount, purpose, termDays } = req.body;
+    const { agentId, agentWallet, amount, purpose, termDays, collateral } = req.body;
 
     if (!agentId || !agentWallet || !amount) {
       res.status(400).json({ error: 'Missing required fields: agentId, agentWallet, amount' });
@@ -50,6 +50,19 @@ router.post('/request', verifyAgent, async (req: Request, res: Response) => {
       requestedAmount: parseUSDC(amount),
       purpose: validPurpose,
       proposedTermDays: numTermDays,
+      collateral:
+        collateral && typeof collateral === 'object' && collateral.chain && collateral.asset
+          ? {
+              chain: String(collateral.chain) as LoanApplication['collateral'] extends infer T
+                ? T extends { chain: infer C }
+                  ? C
+                  : never
+                : never,
+              asset: String(collateral.asset),
+              wallet: String(collateral.wallet || agentWallet),
+              amount: Number(collateral.amount) || 0,
+            }
+          : undefined,
     };
 
     const decision = await processLoanApplication(application);

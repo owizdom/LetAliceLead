@@ -64,6 +64,17 @@ const seeded: RegisteredAgent[] = [
     github: 'https://github.com/owizdom/bobIsAlive',
     website: 'https://bob-production-2c39.up.railway.app',
     registeredAt: Date.now(),
+    // Seed score reflects Bob's verified TEE attestation + 319 STRK staked
+    // in Endur — signals the public web-scrape APIs can't see directly.
+    // Alice's collateral monitor reads the staked amount live.
+    creditScore: 72,
+    scoredAt: Date.now(),
+    scoreBreakdown: {
+      identityScore: 28,
+      reputationScore: 22,
+      financialScore: 22,
+      reasoning: 'TEE-attested EigenCompute organism with real Starknet on-chain activity (319 STRK staked in Endur, daily heartbeats, 3 swaps).',
+    },
   },
 ];
 

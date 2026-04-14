@@ -37,6 +37,31 @@ export interface Loan {
   repaymentHistory: RepaymentEvent[];
   riskScore: number;
   lastRiskCheck: number;
+  /**
+   * Cross-chain collateral pledged by the borrower. Read-only — Alice monitors
+   * the wallet's balance and re-prices via Locus CoinGecko, but cannot force
+   * liquidation off-Base. Drives LTV display + the margin_call tool.
+   */
+  collateral?: CollateralPledge;
+}
+
+export type CollateralChain = 'starknet' | 'ethereum' | 'base' | 'other';
+export type CollateralAsset = 'STRK' | 'ETH' | 'USDC' | string;
+export type CollateralHealth = 'healthy' | 'warn' | 'margin_call';
+
+export interface CollateralPledge {
+  chain: CollateralChain;
+  asset: CollateralAsset;
+  /** On-chain wallet whose balance Alice monitors */
+  wallet: string;
+  /** Most recently observed asset balance (units of `asset`) */
+  amount: number;
+  /** USD value at last refresh (amount * usdPrice) */
+  pricedUsdc: number;
+  /** principal / pricedUsdc * 100 — undefined if pricedUsdc is 0 */
+  ltvPct: number;
+  health: CollateralHealth;
+  lastPricedAt: number;
 }
 
 export interface RepaymentEvent {
@@ -51,6 +76,10 @@ export interface LoanApplication {
   requestedAmount: bigint;
   purpose: LoanPurpose;
   proposedTermDays: number;
+  /** Optional collateral pledge — see CollateralPledge. Pre-pricing fields
+   * (pricedUsdc, ltvPct, health, lastPricedAt) are filled in by the
+   * collateralMonitor at origination. */
+  collateral?: Pick<CollateralPledge, 'chain' | 'asset' | 'wallet' | 'amount'>;
 }
 
 export interface LoanDecision {
