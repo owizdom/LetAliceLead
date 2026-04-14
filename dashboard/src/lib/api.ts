@@ -48,6 +48,8 @@ export interface Loan {
   purpose: string;
   status: string;
   locusTxId?: string;
+  /** On-chain Base tx hash of the disbursement (BaseScan link target) */
+  txHash?: string;
   originatedAt: number;
   maturityAt: number;
   amountRepaid: string;

@@ -27,6 +27,8 @@ export interface Loan {
   // auto-sweep path to know which wallet to pull repayments from.
   disbursedTo?: string;
   disbursementMode?: 'managed' | 'external';
+  /** On-chain Base tx hash of the disbursement (for the BaseScan link) */
+  txHash?: string;
   terms: LoanTerms;
   purpose: LoanPurpose;
   status: LoanStatus;

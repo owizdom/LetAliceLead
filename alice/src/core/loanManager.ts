@@ -2,7 +2,7 @@ import { Loan, LoanStatus, LoanTerms, LoanApplication, LoanDecision } from '../t
 import { CONSTITUTION, getInterestTier } from '../constitution/rules';
 import { computeCreditScore } from './creditScoring';
 import { getTreasury, deployCapital, returnCapital, writeOffCapital, recordInterest, getRiskMetrics } from './treasury';
-import { transferUSDC } from '../locus/adapter';
+import { transferUSDC, getOnChainHash } from '../locus/adapter';
 import { auditLog } from '../locus/audit';
 import { logger } from '../utils/logger';
 import { generateLoanId, serializeBigInts } from '../utils/crypto';
@@ -279,6 +279,29 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
 
   loans.set(loan.id, loan);
   deployCapital(app.requestedAmount);
+
+  // Resolve the on-chain Base tx hash so the dashboard can render a
+  // BaseScan link. Locus moves QUEUED → CONFIRMED in ~5–60s on Base,
+  // so we poll for ~3 minutes before giving up.
+  if (!txId.startsWith('notional_')) {
+    void (async () => {
+      const start = Date.now();
+      while (Date.now() - start < 180_000) {
+        const hash = await getOnChainHash(txId);
+        if (hash) {
+          loan.txHash = hash;
+          await auditLog('loan.tx_hash_resolved', {
+            loanId: loan.id,
+            locusTxId: txId,
+            txHash: hash,
+            basescan: `https://basescan.org/tx/${hash}`,
+          });
+          return;
+        }
+        await new Promise((r) => setTimeout(r, 4000));
+      }
+    })();
+  }
 
   // Pledge collateral if the application included a pledge. The monitor
   // populates the live pricing fields on the loan in-place.

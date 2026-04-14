@@ -130,6 +130,26 @@ export async function getTransactions(opts: {
   return body.data || body.transactions || [];
 }
 
+/**
+ * Look up the on-chain Base tx hash for a given Locus transaction id.
+ * Returns undefined if the tx isn't found yet (Locus settlement is async)
+ * or if the response shape doesn't expose a hash.
+ */
+export async function getOnChainHash(locusTxId: string): Promise<string | undefined> {
+  try {
+    const res = await fetch(`${API_BASE}/pay/transactions?limit=20`, { headers: headers() });
+    if (!res.ok) return undefined;
+    const body = await res.json() as {
+      data?: { transactions?: Array<{ id?: string; tx_hash?: string }> };
+    };
+    const txs = body.data?.transactions || [];
+    const hit = txs.find((t) => t.id === locusTxId);
+    return hit?.tx_hash || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // ─── Wrapped API Calls (Pay-Per-Use) ─────────────────────────
 
 export async function wrappedCall<T = unknown>(

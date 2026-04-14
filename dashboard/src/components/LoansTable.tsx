@@ -109,11 +109,46 @@ export default function LoansTable({ loans }: LoansTableProps) {
                   style={{ borderColor: "var(--border)" }}
                 >
                   <td className="px-5 py-4">
-                    <div className="font-medium" style={{ color: "var(--text)" }}>
-                      Agent #{loan.borrowerAgentId}
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium" style={{ color: "var(--text)" }}>
+                        Agent #{loan.borrowerAgentId}
+                      </div>
+                      {loan.txHash && (
+                        <a
+                          href={`https://basescan.org/tx/${loan.txHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full hover:opacity-85 transition-opacity"
+                          style={{
+                            color: "var(--sky-deep)",
+                            background: "color-mix(in srgb, var(--sky) 45%, var(--surface-1))",
+                            border: "1px solid var(--sky-deep)",
+                          }}
+                          title="Verify disbursement on BaseScan"
+                        >
+                          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          BaseScan
+                        </a>
+                      )}
                     </div>
                     <div className="font-mono-tokens text-xs mt-0.5" style={{ color: "var(--muted)" }}>
                       {loan.borrowerWallet.slice(0, 8)}…{loan.borrowerWallet.slice(-6)}
+                      {loan.txHash && (
+                        <>
+                          {" · tx "}
+                          <a
+                            href={`https://basescan.org/tx/${loan.txHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="hover:underline"
+                            style={{ color: "var(--sky-deep)" }}
+                          >
+                            {loan.txHash.slice(0, 8)}…{loan.txHash.slice(-6)}
+                          </a>
+                        </>
+                      )}
                     </div>
                   </td>
                   <td className="px-5 py-4 text-right font-mono-tokens tabular-nums" style={{ color: "var(--text)" }}>
