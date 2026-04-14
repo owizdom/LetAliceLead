@@ -198,11 +198,6 @@ export async function requestLoan(params: {
   return res.json();
 }
 
-export async function runDemo(): Promise<unknown> {
-  const res = await fetch(`${API_BASE}/api/demo/run`, { method: "POST" });
-  return res.json();
-}
-
 /** Convert wei string to USDC float */
 export function weiToUSDC(wei: string): number {
   return Number(wei) / 1e6;

@@ -276,6 +276,15 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
 }
 
 export async function processRepayment(loanId: string, amount: bigint, txHash: string): Promise<Loan> {
+  const release = await acquireLock();
+  try {
+    return await _processRepayment(loanId, amount, txHash);
+  } finally {
+    release();
+  }
+}
+
+async function _processRepayment(loanId: string, amount: bigint, txHash: string): Promise<Loan> {
   const loan = loans.get(loanId);
   if (!loan) throw new Error(`Loan ${loanId} not found`);
   if (loan.status === LoanStatus.COMPLETED || loan.status === LoanStatus.DEFAULTED) {
@@ -303,6 +312,22 @@ export async function processRepayment(loanId: string, amount: bigint, txHash: s
     const interestEarned = loan.amountRepaid - loan.terms.principalAmount;
     recordInterest(interestEarned);
 
+    // Decay any rate penalty on this borrower by 1 point for completing a loan.
+    // Paying on time restores trust; chronic late payers still stay penalized.
+    const prevAdjustment = getBorrowerRateAdjustment(loan.borrowerAgentId);
+    if (prevAdjustment > 0) {
+      const decay = Math.min(prevAdjustment, 1);
+      adjustBorrowerRate(loan.borrowerAgentId, -decay);
+      await auditLog('loan.rate_decay', {
+        agentId: loan.borrowerAgentId,
+        loanId,
+        previousPenalty: prevAdjustment,
+        decayedBy: decay,
+        newPenalty: prevAdjustment - decay,
+        reason: 'Successful repayment',
+      });
+    }
+
     await auditLog('loan.completed', {
       loanId,
       agentId: loan.borrowerAgentId,
@@ -317,23 +342,45 @@ export async function processRepayment(loanId: string, amount: bigint, txHash: s
 }
 
 export async function processDefault(loanId: string): Promise<void> {
+  const release = await acquireLock();
+  try {
+    await _processDefault(loanId);
+  } finally {
+    release();
+  }
+}
+
+async function _processDefault(loanId: string): Promise<void> {
   const loan = loans.get(loanId);
   if (!loan) return;
+  // Guard — another handler may have already resolved this loan
+  if (loan.status === LoanStatus.DEFAULTED || loan.status === LoanStatus.COMPLETED) return;
 
   loan.status = LoanStatus.DEFAULTED;
   const outstanding = loan.terms.totalRepayment - loan.amountRepaid;
-  writeOffCapital(loan.terms.principalAmount);
+  // Portion of outstanding balance attributable to interest Alice expected but will never see
+  const principalOutstanding = loan.terms.principalAmount > loan.amountRepaid
+    ? loan.terms.principalAmount - loan.amountRepaid
+    : BigInt(0);
+  const interestLost = outstanding - principalOutstanding;
+
+  writeOffCapital(principalOutstanding);
 
   await auditLog('loan.defaulted', {
     loanId,
     agentId: loan.borrowerAgentId,
     outstanding: outstanding.toString(),
+    principalWrittenOff: principalOutstanding.toString(),
+    interestForgone: interestLost.toString(),
     principal: loan.terms.principalAmount.toString(),
+    amountRepaid: loan.amountRepaid.toString(),
   });
 
   await logger.warn('loan.defaulted', {
     loanId,
     agentId: loan.borrowerAgentId,
     outstanding: formatUSDC(outstanding),
+    principalWrittenOff: formatUSDC(principalOutstanding),
+    interestForgone: formatUSDC(interestLost),
   });
 }

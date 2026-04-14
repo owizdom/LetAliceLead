@@ -130,25 +130,24 @@ export async function fetchReputationData(agentId: number, agentWallet: string):
     let positiveRatio = 0.7;
     let recentTrend: 'improving' | 'stable' | 'declining' = 'stable';
 
-    if (mentionCount > 0) {
-      try {
-        const sentimentResult = await timedCall<{ choices?: Array<{ message?: { content?: string } }> }>(
-          'perplexity', 'chat', {
-            model: 'sonar',
-            messages: [{
-              role: 'user',
-              content: `Analyze the reputation of AI agent wallet ${agentWallet}. Based on available data, rate: 1) positive ratio (0-1), 2) trend (improving/stable/declining). Reply JSON only: {"positiveRatio": 0.X, "trend": "stable"}`,
-            }],
-          }
-        );
+    // Always call Perplexity so the Signal Loom fires all 7 pulses per score.
+    try {
+      const sentimentResult = await timedCall<{ choices?: Array<{ message?: { content?: string } }> }>(
+        'perplexity', 'chat', {
+          model: 'sonar',
+          messages: [{
+            role: 'user',
+            content: `Analyze the reputation of AI agent wallet ${agentWallet}. Based on available data, rate: 1) positive ratio (0-1), 2) trend (improving/stable/declining). Reply JSON only: {"positiveRatio": 0.X, "trend": "stable"}`,
+          }],
+        }
+      );
 
-        const content = sentimentResult?.choices?.[0]?.message?.content || '';
-        const parsed = JSON.parse(content.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
-        if (parsed.positiveRatio) positiveRatio = parsed.positiveRatio;
-        if (parsed.trend) recentTrend = parsed.trend;
-      } catch {
-        // Use defaults
-      }
+      const content = sentimentResult?.choices?.[0]?.message?.content || '';
+      const parsed = JSON.parse(content.replace(/```json?\n?/g, '').replace(/```/g, '').trim());
+      if (parsed.positiveRatio) positiveRatio = parsed.positiveRatio;
+      if (parsed.trend) recentTrend = parsed.trend;
+    } catch {
+      // fall back to defaults; the audit event still fired via timedCall
     }
 
     return {

@@ -47,15 +47,17 @@ export async function createAgent(config: AgentConfig) {
   const app = createServer();
 
   app.listen(config.port, () => {
+    const publicBase = process.env.PUBLIC_BASE_URL || `http://localhost:${config.port}`;
     logger.info('agent.ready', {
       bankName: config.bankName,
       port: config.port,
+      baseUrl: publicBase,
       endpoints: [
-        `GET  http://localhost:${config.port}/api/registry`,
-        `POST http://localhost:${config.port}/api/registry/register`,
-        `POST http://localhost:${config.port}/api/loans/request`,
-        `GET  http://localhost:${config.port}/api/portfolio`,
-        `GET  http://localhost:${config.port}/health`,
+        `GET  ${publicBase}/api/registry`,
+        `POST ${publicBase}/api/registry/register`,
+        `POST ${publicBase}/api/loans/request`,
+        `GET  ${publicBase}/api/portfolio`,
+        `GET  ${publicBase}/health`,
       ],
     });
   });

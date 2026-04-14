@@ -5,12 +5,13 @@ import { weiToUSDC } from "@/lib/api";
 import Shell, { SectionHeading } from "@/components/Shell";
 import HeroSection from "@/components/HeroSection";
 import FundBanner from "@/components/FundBanner";
+import LivePreview from "@/components/LivePreview";
 import SignalLoom from "@/components/SignalLoom";
 import StatsGrid from "@/components/StatsGrid";
 import ActivityFeed from "@/components/ActivityFeed";
 
 export default function OverviewPage() {
-  const { dashboard, auditEntries, isLive, error } = useAlice();
+  const { dashboard, auditEntries, registryAgents, isLive, error } = useAlice();
 
   return (
     <Shell isLive={isLive} bankWallet={dashboard?.bankWallet} error={error}>
@@ -18,6 +19,11 @@ export default function OverviewPage() {
         totalYield={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
         totalReserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
       />
+
+      <section className="mb-16">
+        <SectionHeading label="Registered" title="Live agents on Alice's books" />
+        <LivePreview agents={registryAgents} />
+      </section>
 
       <FundBanner
         bankWallet={dashboard?.bankWallet}

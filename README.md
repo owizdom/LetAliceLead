@@ -334,14 +334,19 @@ curl http://localhost:3001/api/portfolio/metrics
 curl http://localhost:3001/api/portfolio/audit?limit=100
 ```
 
-### Demo
+### Registry
 
 ```bash
-# Run 3 simulated agents (ResearchBot approved, DataCruncher approved, ShadyAgent denied)
-curl -X POST http://localhost:3001/api/demo/run
+# List registered agents (seeded with Sovra and bobIsAlive)
+curl http://localhost:3001/api/registry
 
-# View demo agent profiles
-curl http://localhost:3001/api/demo/agents
+# Register a new agent
+curl -X POST http://localhost:3001/api/registry/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"MyAgent","tagline":"what it does","description":"longer bio","wallet":"0xYourBaseWallet","chain":"base","github":"https://github.com/you/repo"}'
+
+# Score an agent (fires 7 Locus wrapped API calls)
+curl -X POST http://localhost:3001/api/registry/<agentId>/score
 ```
 
 ### Health
@@ -370,8 +375,8 @@ LetAliceLead/
 │       ├── constitution/
 │       │   └── rules.ts          Hardcoded lending rules — reserve ratios, tiers, limits
 │       ├── api/
-│       │   ├── routes/           credit, loans, portfolio, demo, health
-│       │   └── middleware/       Agent verification, rate limiting (30 req/min)
+│       │   ├── routes/           credit, loans, portfolio, registry, health
+│       │   └── middleware/       Agent verification, rate limiting (600 req/min)
 │       ├── adapters/
 │       │   └── eigenai.ts        OpenAI-compatible LLM client
 │       ├── agent/
@@ -379,18 +384,21 @@ LetAliceLead/
 │       ├── types/                CreditScore, Loan, Portfolio, RiskMetrics
 │       └── utils/                USDC math (6 decimals), hashing, logging
 │
-├── dashboard/                    Live portfolio dashboard
+├── dashboard/                    Live portfolio dashboard (5 tabs)
 │   └── src/
-│       ├── app/                  Next.js 16 app router, dark theme globals
+│       ├── app/                  Next.js 16 app router — /, /agents, /ledger, /policy, /about
 │       ├── components/
-│       │   ├── HeroYield.tsx     Animated yield counter (mint green, requestAnimationFrame)
-│       │   ├── StatCards.tsx      Reserves, deployed, available, weighted APR
-│       │   ├── ActivityFeed.tsx   Color-coded live feed (green=approved, red=denied, violet=scoring)
-│       │   ├── PolicyPanel.tsx    Reserve ratio bar, default rate, halt status
-│       │   ├── LoansTable.tsx     Borrower, APR, score, status pill, repayment progress
-│       │   └── DemoButton.tsx     Triggers POST /api/demo/run
+│       │   ├── HeroSection.tsx   Animated yield counter + reserve (mint green, serif display)
+│       │   ├── StatsGrid.tsx     Reserves, deployed, available, interest, APR, avg score
+│       │   ├── SignalLoom.tsx    7 Locus API ribbons with orange pulse per call
+│       │   ├── Registry.tsx      Agent cards with live Sovra auction + bobIsAlive monologue
+│       │   ├── ActivityFeed.tsx  Compact live feed, newest on top, slide-in animation
+│       │   ├── PolicyPanel.tsx   Reserve ratio bar, default rate, halt status
+│       │   ├── LoansTable.tsx    Borrower, APR, score, status pill, repayment progress
+│       │   └── FundBanner.tsx    Honest "wallet empty" prompt with BaseScan link
 │       └── lib/
-│           └── api.ts            Fetch client, USDC formatting, TypeScript interfaces
+│           ├── api.ts            Fetch client + USDC formatting + TypeScript interfaces
+│           └── useAlice.ts       Resilient shared polling hook (allSettled, 5-failure threshold)
 │
 ├── soul/                         Alice's identity
 │   ├── constitution.md           The rules she follows (human-readable mirror of rules.ts)

@@ -41,7 +41,8 @@ const seeded: RegisteredAgent[] = [
     tagline: 'Canonical AgentKit reference on EigenCloud',
     description:
       'Built by Gajesh Naik. A sovereign AI agent demonstrating autonomous on-chain operations in a TEE. Often cited as the canonical AgentKit reference implementation.',
-    wallet: '0x0000000000000000000000000000000000000000',
+    // Signer address observed on Sovra's live feed posts at sovra.dev
+    wallet: '0x150E6f04C25D71334CC5800Da2E63C847f4A310f',
     chain: 'base',
     status: 'registered',
     github: 'https://github.com/Gajesh2007/sovra',
