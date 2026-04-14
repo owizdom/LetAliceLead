@@ -33,6 +33,18 @@ let timer: ReturnType<typeof setInterval> | null = null;
 let tickCount = 0;
 let lendingPauseReason: string | null = null;
 
+/**
+ * Borrowers Alice has flagged with margin_call. Loan manager checks this
+ * to refuse new credit lines until the borrower's collateral recovers.
+ */
+const marginCalledAgents: Set<number> = new Set();
+export function isMarginCalled(agentId: number): boolean {
+  return marginCalledAgents.has(agentId);
+}
+export function clearMarginCall(agentId: number): void {
+  marginCalledAgents.delete(agentId);
+}
+
 // On OAuth, the system field must be EXACTLY the Claude Code preamble — any extra
 // text triggers a silent 429 rate_limit_error. Alice's persona, mandate, and
 // constraints all ride in the user message instead (see ALICE_BRIEF below).
@@ -48,6 +60,8 @@ Your mandate:
 - Adjust rates when reputation changes materially
 - Pause lending if you sense systemic risk
 - Resume lending when conditions clear
+- Margin-call any borrower whose pledged cross-chain collateral has fallen so their LTV exceeds 90% (use margin_call)
+- Promote LetAliceLead by bidding on Sovra's auction when borrower count is low or attention is cheap (use promote_via_sovra — costs real USDC, do this at most every few ticks)
 - Sometimes the right move is to do nothing (use wait or note)
 
 Voice: dry, observational, one short sentence. You are a credit officer who has seen everything. Speak in first person. No emoji. Never exceed 30 words of reasoning.
@@ -57,7 +71,8 @@ Format your response as: brief reasoning (1 sentence) followed by exactly one to
 Constraints:
 - Do not re-score the same agent twice in a row
 - Pause lending only if default rate > 5% or reserve ratio < 15%
-- Adjust rates by no more than ±3 percentage points per tick`;
+- Adjust rates by no more than ±3 percentage points per tick
+- Bid on Sovra at most once every 10 ticks; cap each bid at 2 USDC`;
 
 const TOOLS: Anthropic.Messages.Tool[] = [
   {
@@ -127,6 +142,43 @@ const TOOLS: Anthropic.Messages.Tool[] = [
         reason: { type: 'string' as const },
       },
       required: ['reason'],
+    },
+  },
+  {
+    name: 'margin_call',
+    description:
+      "Flag a borrower whose pledged cross-chain collateral has fallen so its LTV exceeds 90%. " +
+      "This blocks new credit lines for that agent and records a margin_call audit event. " +
+      "Use only when collateral health = margin_call.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        agentId: { type: 'number' as const, description: "The agent's id" },
+        reason: { type: 'string' as const, description: 'Why you fired the margin call' },
+      },
+      required: ['agentId', 'reason'],
+    },
+  },
+  {
+    name: 'promote_via_sovra',
+    description:
+      "Place a real USDC bid on Sovra's auction (sovra.dev) to promote LetAliceLead and grow the borrower base. " +
+      "Costs the bid amount in USDC plus a small ETH gas fee. Use sparingly — at most once per few ticks — when book demand looks low or you want to acquire borrowers. " +
+      "Cap bid at 2 USDC per call.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        usdcAmount: {
+          type: 'number' as const,
+          description: 'How much USDC to bid (between 1 and 2).',
+        },
+        requestText: {
+          type: 'string' as const,
+          description: 'The post text Sovra will publish if you win the auction. Max 280 chars; mention LetAliceLead and the credit primitive.',
+        },
+        reason: { type: 'string' as const, description: 'Why you chose to bid now' },
+      },
+      required: ['usdcAmount', 'requestText', 'reason'],
     },
   },
 ];
@@ -208,7 +260,32 @@ function buildContext(): string {
     principal: Number(l.terms.principalAmount) / 1e6,
     aprPct: l.terms.interestRateAPR,
     daysToMaturity: Math.floor((l.maturityAt - Math.floor(now / 1000)) / 86400),
+    collateral: l.collateral
+      ? {
+          chain: l.collateral.chain,
+          asset: l.collateral.asset,
+          amount: l.collateral.amount,
+          pricedUsdc: Number(l.collateral.pricedUsdc.toFixed(2)),
+          ltvPct: Number(l.collateral.ltvPct.toFixed(1)),
+          health: l.collateral.health,
+        }
+      : null,
   }));
+
+  // Sovra auction state — feeds the promote_via_sovra decision
+  const sovraAgent = getAllAgents().find((a) => a.liveState?.source === 'sovra');
+  const sovraData = sovraAgent?.liveState?.data as
+    | { auction?: { topBid?: { amountUsdc?: number }; bidCount?: number; nextSettleAt?: number } }
+    | undefined;
+  const sovraAuction = sovraData?.auction
+    ? {
+        topBidUsdc: sovraData.auction.topBid?.amountUsdc ?? null,
+        bidCount: sovraData.auction.bidCount ?? 0,
+        minutesToSettlement: sovraData.auction.nextSettleAt
+          ? Math.max(0, Math.floor((sovraData.auction.nextSettleAt - now) / 60_000))
+          : null,
+      }
+    : null;
 
   return JSON.stringify(
     {
@@ -234,6 +311,8 @@ function buildContext(): string {
         budgetRemainingUsdc: Math.max(0, DAILY_BUDGET_USDC - procurement.totalSpendUsdc),
       },
       yourPause: { active: lendingPauseReason !== null, reason: lendingPauseReason },
+      sovraAuction,
+      marginCalledAgentIds: Array.from(marginCalledAgents),
       registeredAgents: agents,
       activeLoans,
       recentActivity: recent.map((e) => ({ at: e.timestamp, action: e.action, data: e.data })),
@@ -445,6 +524,51 @@ async function dispatchTool(name: string, input: Record<string, unknown>, tickId
     case 'wait': {
       const reason = String(input.reason || '');
       await auditLog('alice.action.wait', { tickId, reason });
+      return;
+    }
+
+    case 'margin_call': {
+      const agentId = Number(input.agentId);
+      const reason = String(input.reason || '');
+      const agent = getAgent(agentId);
+      if (!agent) {
+        await auditLog('agent_loop.tool.error', { tickId, tool: name, error: `agent ${agentId} not found` });
+        return;
+      }
+      // Apply a +5% rate penalty as the enforcement mechanism (read-only collateral
+      // means we can't seize on-chain; we make future credit more expensive instead).
+      adjustBorrowerRate(agentId, 5);
+      marginCalledAgents.add(agentId);
+      await auditLog('alice.action.margin_call', {
+        tickId,
+        agentId,
+        name: agent.name,
+        reason,
+        ratePenaltyAdded: 5,
+      });
+      return;
+    }
+
+    case 'promote_via_sovra': {
+      const requested = Number(input.usdcAmount);
+      const usdcAmount = Math.min(2, Math.max(1, Number.isFinite(requested) ? requested : 1));
+      const requestText = String(input.requestText || '').slice(0, 280);
+      const reason = String(input.reason || '');
+      try {
+        const { placeBid } = await import('../sovra/sovraClient');
+        const result = await placeBid(usdcAmount, requestText);
+        await auditLog('alice.action.promote_via_sovra', {
+          tickId,
+          usdcAmount,
+          requestText,
+          reason,
+          mode: result.mode,
+          bidTxHash: result.bidTxHash,
+          approveTxHash: result.approveTxHash,
+        });
+      } catch (err) {
+        await auditLog('agent_loop.tool.error', { tickId, tool: name, error: String(err) });
+      }
       return;
     }
 
