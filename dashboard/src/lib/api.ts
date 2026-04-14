@@ -101,6 +101,37 @@ export interface RegisteredAgentData {
     financialScore: number;
     reasoning?: string;
   };
+  liveState?: {
+    source: 'sovra' | 'bob' | 'other';
+    fetchedAt: number;
+    data: unknown;
+  };
+}
+
+export interface SovraLiveData {
+  auction: {
+    lastSettledAt: number;
+    nextSettleAt: number;
+    settled: boolean;
+    bidCount: number;
+    topBid?: {
+      bidder: string;
+      amountUsdc: number;
+      requestText: string;
+      chain: string;
+    };
+  };
+  recentPosts: Array<{
+    id: string;
+    tweetId?: string;
+    text: string;
+    imagePath?: string | null;
+    signature: string;
+    signerAddress: string;
+    createdAt?: string;
+  }>;
+  fetchedAt: number;
+  signerAddress?: string;
 }
 
 export async function requestLoan(params: {

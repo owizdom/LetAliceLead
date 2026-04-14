@@ -4,7 +4,7 @@ const requestCounts = new Map<string, { count: number; resetAt: number }>();
 let requestsSinceCleanup = 0;
 
 const WINDOW_MS = 60_000;   // 1 minute
-const MAX_REQUESTS = 30;    // 30 requests per minute per IP
+const MAX_REQUESTS = 600;   // 10 req/sec per IP — dashboard polls multiple endpoints at 2s cadence
 const CLEANUP_INTERVAL = 100; // prune stale entries every 100 requests
 
 export function rateLimit(req: Request, res: Response, next: NextFunction): void {

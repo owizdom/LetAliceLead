@@ -1,30 +1,10 @@
 "use client";
 
 import { useState } from "react";
-
-export interface RegisteredAgent {
-  agentId: number;
-  name: string;
-  tagline: string;
-  description: string;
-  wallet: string;
-  chain: string;
-  status: 'live' | 'dormant' | 'registered';
-  github?: string;
-  website?: string;
-  registeredAt: number;
-  creditScore?: number;
-  scoredAt?: number;
-  scoreBreakdown?: {
-    identityScore: number;
-    reputationScore: number;
-    financialScore: number;
-    reasoning?: string;
-  };
-}
+import { RegisteredAgentData, SovraLiveData } from "@/lib/api";
 
 interface RegistryProps {
-  agents: RegisteredAgent[];
+  agents: RegisteredAgentData[];
   apiBase: string;
   onRefresh: () => void;
 }
@@ -44,6 +24,16 @@ function chainLabel(chain: string): string {
   return chain.charAt(0).toUpperCase() + chain.slice(1);
 }
 
+function timeAgo(ts: number): string {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.floor(hr / 24)}d ago`;
+}
+
 export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) {
   const [scoringId, setScoringId] = useState<number | null>(null);
 
@@ -53,7 +43,7 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
       await fetch(`${apiBase}/api/registry/${agentId}/score`, { method: 'POST' });
       onRefresh();
     } catch {
-      // ignore, UI will show next poll
+      // ignore
     } finally {
       setScoringId(null);
     }
@@ -64,6 +54,8 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
       {agents.map((agent) => {
         const st = statusStyle(agent.status);
         const isScoring = scoringId === agent.agentId;
+        const isSovra = agent.liveState?.source === 'sovra';
+        const sovraData = isSovra ? (agent.liveState!.data as SovraLiveData) : null;
 
         return (
           <div
@@ -71,12 +63,10 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
             className="rounded-xl border bg-white p-5 flex flex-col"
             style={{ borderColor: 'var(--border)' }}
           >
+            {/* Header */}
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1 min-w-0">
-                <h3
-                  className="font-serif-display text-lg tracking-tight"
-                  style={{ color: 'var(--text)' }}
-                >
+                <h3 className="font-serif-display text-lg tracking-tight" style={{ color: 'var(--text)' }}>
                   {agent.name}
                 </h3>
                 <p className="text-xs mt-0.5" style={{ color: 'var(--muted)' }}>
@@ -85,13 +75,10 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <div
-                  className="w-1.5 h-1.5 rounded-full"
+                  className={`w-1.5 h-1.5 rounded-full ${agent.status === 'live' ? 'pulse-dot' : ''}`}
                   style={{ background: st.dot }}
                 />
-                <span
-                  className="text-xs font-medium px-2 py-0.5 rounded"
-                  style={{ background: st.bg, color: st.fg }}
-                >
+                <span className="text-xs font-medium px-2 py-0.5 rounded" style={{ background: st.bg, color: st.fg }}>
                   {st.label}
                 </span>
               </div>
@@ -101,6 +88,93 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
               {agent.description}
             </p>
 
+            {/* Live Sovra data */}
+            {sovraData && (
+              <div
+                className="mb-4 p-4 rounded-lg"
+                style={{ background: 'var(--surface-2)' }}
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
+                    Live from sovra.dev
+                  </p>
+                  <p className="text-[10px] font-mono-tokens" style={{ color: 'var(--muted)' }}>
+                    {timeAgo(sovraData.fetchedAt)}
+                  </p>
+                </div>
+
+                {/* Auction */}
+                {sovraData.auction.topBid ? (
+                  <div className="mb-3 pb-3 border-b" style={{ borderColor: 'var(--border)' }}>
+                    <div className="flex items-baseline justify-between mb-1.5">
+                      <span className="text-xs" style={{ color: 'var(--muted)' }}>Top bid</span>
+                      <span
+                        className="font-mono-tokens text-sm font-semibold tabular-nums"
+                        style={{ color: 'var(--accent)' }}
+                      >
+                        ${sovraData.auction.topBid.amountUsdc} USDC
+                      </span>
+                    </div>
+                    <p className="text-sm italic leading-snug mb-2 font-serif-display" style={{ color: 'var(--text)' }}>
+                      &ldquo;{sovraData.auction.topBid.requestText.length > 120
+                        ? sovraData.auction.topBid.requestText.slice(0, 120) + '…'
+                        : sovraData.auction.topBid.requestText}&rdquo;
+                    </p>
+                    <div className="flex items-center justify-between text-[10px]" style={{ color: 'var(--muted)' }}>
+                      <a
+                        href={`https://basescan.org/address/${sovraData.auction.topBid.bidder}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono-tokens hover:underline"
+                      >
+                        {sovraData.auction.topBid.bidder.slice(0, 8)}…{sovraData.auction.topBid.bidder.slice(-6)}
+                      </a>
+                      <span>
+                        {sovraData.auction.bidCount} bid{sovraData.auction.bidCount !== 1 ? 's' : ''} · settles {timeAgo(sovraData.auction.nextSettleAt * 1000).replace(' ago', ' from now')}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs italic mb-3" style={{ color: 'var(--muted)' }}>
+                    No open bids right now.
+                  </p>
+                )}
+
+                {/* Recent posts */}
+                {sovraData.recentPosts.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest mb-1.5" style={{ color: 'var(--muted)' }}>
+                      Recent signed posts
+                    </p>
+                    <ul className="space-y-1.5">
+                      {sovraData.recentPosts.slice(0, 3).map((post) => (
+                        <li key={post.id} className="text-xs leading-snug" style={{ color: 'var(--text)' }}>
+                          <span className="font-serif-display">
+                            {post.text.length > 80 ? post.text.slice(0, 80) + '…' : post.text}
+                          </span>
+                          {post.tweetId && (
+                            <>
+                              {' '}
+                              <a
+                                href={`https://x.com/i/web/status/${post.tweetId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-mono-tokens hover:underline"
+                                style={{ color: 'var(--muted)' }}
+                              >
+                                ↗
+                              </a>
+                            </>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Score row */}
             <div className="flex items-center justify-between mb-4 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
               <div>
                 <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: 'var(--muted)' }}>
@@ -134,7 +208,8 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
               </button>
             </div>
 
-            <div className="flex items-center justify-between text-xs flex-wrap gap-2">
+            {/* Footer: chain, wallet, links */}
+            <div className="flex items-center justify-between text-xs flex-wrap gap-2 mt-auto">
               <div className="flex items-center gap-3">
                 <span className="font-mono-tokens" style={{ color: 'var(--muted)' }}>
                   {chainLabel(agent.chain)}
@@ -152,17 +227,6 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
                 )}
               </div>
               <div className="flex items-center gap-3">
-                {agent.github && (
-                  <a
-                    href={agent.github}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:underline"
-                    style={{ color: 'var(--muted)' }}
-                  >
-                    GitHub
-                  </a>
-                )}
                 {agent.website && (
                   <a
                     href={agent.website}
@@ -172,6 +236,17 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
                     style={{ color: 'var(--muted)' }}
                   >
                     Website
+                  </a>
+                )}
+                {agent.github && (
+                  <a
+                    href={agent.github}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:underline"
+                    style={{ color: 'var(--muted)' }}
+                  >
+                    GitHub
                   </a>
                 )}
               </div>

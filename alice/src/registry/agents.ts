@@ -25,11 +25,11 @@ export interface RegisteredAgent {
     financialScore: number;
     reasoning?: string;
   };
-  // Live state (if we can reach their API)
+  // Live state (if we can reach their API) — free-form per integration
   liveState?: {
-    mood?: string;
-    balance?: number;
-    lastSeenAt?: number;
+    source: 'sovra' | 'bob' | 'other';
+    fetchedAt: number;
+    data: unknown;
   };
 }
 
@@ -45,6 +45,7 @@ const seeded: RegisteredAgent[] = [
     chain: 'base',
     status: 'registered',
     github: 'https://github.com/Gajesh2007/sovra',
+    website: 'https://sovra.dev',
     registeredAt: Date.now(),
   },
   {

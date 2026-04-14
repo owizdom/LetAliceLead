@@ -2,6 +2,7 @@ import { initLocus } from '../locus/adapter';
 import { initEigenAI } from '../adapters/eigenai';
 import { initTreasury } from '../core/treasury';
 import { startRiskMonitor } from '../core/riskMonitor';
+import { startLiveUpdater } from '../registry/liveUpdater';
 import { createServer } from '../api/server';
 import { logger } from '../utils/logger';
 
@@ -32,6 +33,9 @@ export async function createAgent(config: AgentConfig) {
 
   await logger.info('agent.init.risk_monitor', {});
   startRiskMonitor();
+
+  await logger.info('agent.init.live_updater', {});
+  startLiveUpdater();
 
   const app = createServer();
 
