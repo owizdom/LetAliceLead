@@ -62,18 +62,22 @@ export default function AliceFace({ mood, auditEntries }: AliceFaceProps) {
         </AnimatePresence>
       </div>
 
-      {/* The face */}
+      {/* The face — bouncy wrapper for jump physics, wiggle inside for periodic
+          tilt, breathe on the face itself. Three layers compose so each
+          animation has its own transform context. */}
       <div className="relative flex items-center justify-center mb-10 sm:mb-12">
-        <div className="relative float-bob">
-          <div className={faceClass}>
-            {/* eyes */}
-            <div className="alice-eye left blink" />
-            <div className="alice-eye right blink blink-delay" />
-            {/* cheeks */}
-            <div className="alice-cheek left" />
-            <div className="alice-cheek right" />
-            {/* mouth */}
-            <div className={`alice-mouth ${mood === "paused" ? "paused" : ""}`} />
+        <div className="relative bouncy">
+          <div className="wiggle">
+            <div className={faceClass}>
+              {/* eyes */}
+              <div className="alice-eye left blink" />
+              <div className="alice-eye right blink blink-delay" />
+              {/* cheeks */}
+              <div className="alice-cheek left" />
+              <div className="alice-cheek right" />
+              {/* mouth */}
+              <div className={`alice-mouth ${mood === "paused" ? "paused" : ""}`} />
+            </div>
           </div>
 
           {/* sparkles that fly off on vendor calls */}

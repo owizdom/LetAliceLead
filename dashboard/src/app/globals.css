@@ -141,6 +141,28 @@ body > * { position: relative; z-index: 2; }
 }
 .float-bob { animation: float-bob 4.2s ease-in-out infinite; }
 
+/* Real bouncy ball physics — squash on landing, stretch at peak,
+   small overshoot. Use on the wrapper around alice-face. */
+@keyframes bouncy {
+  0%   { transform: translateY(0) scaleX(1) scaleY(1); }
+  8%   { transform: translateY(0) scaleX(1.08) scaleY(0.92); }   /* squash */
+  35%  { transform: translateY(-22px) scaleX(0.96) scaleY(1.04); } /* peak/stretch */
+  55%  { transform: translateY(-26px) scaleX(0.97) scaleY(1.03); } /* hang */
+  85%  { transform: translateY(0) scaleX(1.06) scaleY(0.94); }   /* land */
+  100% { transform: translateY(0) scaleX(1) scaleY(1); }
+}
+.bouncy { animation: bouncy 2.2s cubic-bezier(0.5, 0, 0.5, 1) infinite; transform-origin: center bottom; }
+
+/* Periodic happy wiggle — fires every ~5s for personality. Composes on top of bouncy. */
+@keyframes wiggle {
+  0%, 86%, 100% { transform: rotate(0deg); }
+  88% { transform: rotate(-6deg); }
+  91% { transform: rotate(5deg); }
+  94% { transform: rotate(-3deg); }
+  97% { transform: rotate(2deg); }
+}
+.wiggle { animation: wiggle 5.5s ease-in-out infinite; transform-origin: center bottom; }
+
 @keyframes float-bob-slow {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
