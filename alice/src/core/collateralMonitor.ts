@@ -50,10 +50,16 @@ export function getAllCachedPrices(): Record<string, { usd: number; usd24hChange
 }
 
 /**
- * Fetch USD price for a single asset via Locus CoinGecko. Caches for the
- * configured stale window so repeated calls in the same tick reuse the
- * result. Returns 0 on error so callers can decide how to handle a missing
- * feed.
+ * Fetch USD price for a single asset.
+ *
+ * Two paths, in order:
+ *  1. Locus wrapped CoinGecko — paid (~$0.001/call), procurement-tracked.
+ *  2. Direct CoinGecko free public API — fallback when Locus rejects
+ *     (e.g. wallet temporarily out of funds for a $0.06 wrapped call).
+ *     Same upstream data, just routed without charge so the ticker keeps
+ *     beating regardless of treasury balance.
+ *
+ * Caches for the stale window so repeated calls reuse the result.
  */
 export async function fetchUsdPrice(asset: CollateralAsset): Promise<number> {
   const cached = priceCache.get(asset);
@@ -65,6 +71,7 @@ export async function fetchUsdPrice(asset: CollateralAsset): Promise<number> {
     return 0;
   }
 
+  // Path 1: Locus-wrapped (paid, procurement-tracked)
   try {
     const start = Date.now();
     const result = await wrappedCall<Record<string, { usd?: number; usd_24h_change?: number }>>(
@@ -82,13 +89,46 @@ export async function fetchUsdPrice(asset: CollateralAsset): Promise<number> {
     const usd = typeof entry?.usd === 'number' ? entry.usd : 0;
     const usd24hChange =
       typeof entry?.usd_24h_change === 'number' ? entry.usd_24h_change : undefined;
-    priceCache.set(asset, { usd, usd24hChange, fetchedAt: Date.now() });
-    return usd;
+    if (usd > 0) {
+      priceCache.set(asset, { usd, usd24hChange, fetchedAt: Date.now() });
+      return usd;
+    }
   } catch (err) {
     await auditLog('locus.api.coingecko.called', {
       provider: 'coingecko',
       endpoint: 'simple-price',
       success: false,
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // fall through to direct path
+  }
+
+  // Path 2: Direct public CoinGecko (free, no auth)
+  try {
+    const r = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${id}&vs_currencies=usd&include_24hr_change=true`,
+      { headers: { accept: 'application/json' } }
+    );
+    if (!r.ok) {
+      await logger.warn('collateral.price.direct_failed', { asset, status: r.status });
+      return 0;
+    }
+    const json = (await r.json()) as Record<string, { usd?: number; usd_24h_change?: number }>;
+    const entry = json?.[id];
+    const usd = typeof entry?.usd === 'number' ? entry.usd : 0;
+    const usd24hChange =
+      typeof entry?.usd_24h_change === 'number' ? entry.usd_24h_change : undefined;
+    priceCache.set(asset, { usd, usd24hChange, fetchedAt: Date.now() });
+    await auditLog('coingecko.direct.called', {
+      asset,
+      id,
+      usd,
+      via: 'public-free-endpoint',
+    });
+    return usd;
+  } catch (err) {
+    await logger.warn('collateral.price.direct_error', {
+      asset,
       error: err instanceof Error ? err.message : String(err),
     });
     return 0;
@@ -231,11 +271,12 @@ export async function refreshLoanCollateral(loan: Loan): Promise<CollateralPledg
 async function runCollateralCycle(): Promise<void> {
   const loans = getActiveLoans().filter((l) => l.collateral);
   const cycleId = `coll_${Date.now()}`;
-  if (loans.length === 0) {
-    // Even with no loans, refresh prices once so the ticker has data
-    await Promise.all([fetchUsdPrice('STRK'), fetchUsdPrice('ETH')]);
-    return;
-  }
+
+  // Always warm the ticker assets so /ledger has fresh STRK + ETH prices
+  // regardless of what's pledged.
+  await Promise.all([fetchUsdPrice('STRK'), fetchUsdPrice('ETH')]);
+
+  if (loans.length === 0) return;
 
   await auditLog('collateral.cycle.start', { cycleId, loanCount: loans.length });
   for (const loan of loans) {

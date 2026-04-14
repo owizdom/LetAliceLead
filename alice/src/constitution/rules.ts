@@ -20,8 +20,12 @@ export interface InterestTier {
 }
 
 export const CONSTITUTION: ConstitutionalRules = {
-  minReserveRatioPct: 20,
-  emergencyReserveRatioPct: 10,
+  // Demo-tuned: reserves are bootstrap-funded with promo USDC, so a tight
+  // 20% halt would freeze the loop after a couple of $0.01 origination
+  // ticks. 5% / 2% lets micro-loans keep flowing while still triggering
+  // halts on actual catastrophic drawdowns.
+  minReserveRatioPct: 5,
+  emergencyReserveRatioPct: 2,
   maxSingleLoanPct: 10,
   maxConcentrationPct: 25,
   minCreditScore: 40,

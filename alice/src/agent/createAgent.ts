@@ -5,7 +5,8 @@ import { initTreasury } from '../core/treasury';
 import { startRiskMonitor, stopRiskMonitor } from '../core/riskMonitor';
 import { startAgentLoop, stopAgentLoop } from '../core/agentLoop';
 import { startCollateralMonitor, stopCollateralMonitor } from '../core/collateralMonitor';
-import { syncHistoricalDisbursements } from '../core/loanManager';
+import { startTreasuryHeartbeat, stopTreasuryHeartbeat } from '../core/treasuryHeartbeat';
+import { syncHistoricalDisbursements, restoreOutstandingCapital } from '../core/loanManager';
 import { startLiveUpdater, stopLiveUpdater } from '../registry/liveUpdater';
 import { createServer } from '../api/server';
 import { logger } from '../utils/logger';
@@ -34,6 +35,11 @@ export async function createAgent(config: AgentConfig) {
 
   await logger.info('agent.init.treasury', {});
   await initTreasury();
+  // Restore deployed capital from any loans loaded from the persistent store
+  const restored = restoreOutstandingCapital();
+  if (restored > 0n) {
+    await logger.info('agent.init.capital_restored', { wei: restored.toString() });
+  }
 
   await logger.info('agent.init.risk_monitor', {});
   startRiskMonitor();
@@ -57,6 +63,11 @@ export async function createAgent(config: AgentConfig) {
   // one tool to invoke (rescore, adjust rate, pause, note, wait). Not a cron, an agent.
   await logger.info('agent.init.agent_loop', {});
   startAgentLoop();
+
+  // Treasury heartbeat — micro-USDC pulse on Base every ~5 min so the
+  // BaseScan record never goes silent. Real tx, real memo, tiny amount.
+  await logger.info('agent.init.treasury_heartbeat', {});
+  startTreasuryHeartbeat();
 
   // Per Locus skill doc: heartbeat check-in every 30 min, error feedback on failure
   await logger.info('agent.init.heartbeat', {});
@@ -95,6 +106,7 @@ export async function createAgent(config: AgentConfig) {
     stopLiveUpdater();
     stopAgentLoop();
     stopCollateralMonitor();
+    stopTreasuryHeartbeat();
 
     server.close((err) => {
       if (err) {
