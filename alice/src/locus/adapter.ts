@@ -27,6 +27,16 @@ export interface LocusBalance {
   walletAddress: string;
 }
 
+// What Locus actually returns from /pay/balance — snake_case, strings,
+// a few fields the older LocusBalance interface doesn't capture.
+interface LocusBalanceRaw {
+  usdc_balance?: string | number;
+  wallet_address?: string;
+  chain?: string;
+  allowance?: string | number | null;
+  max_transaction_size?: string | number | null;
+}
+
 export interface LocusSendResult {
   transaction_id: string;
   status: string;
@@ -63,8 +73,15 @@ export async function getBalance(): Promise<LocusBalance> {
   }
   const { recordActivity } = await import('./heartbeat');
   recordActivity('pay.balance');
-  const body = await res.json() as { data?: LocusBalance } & LocusBalance;
-  return body.data || body;
+  const body = await res.json() as { data?: LocusBalanceRaw } & LocusBalanceRaw;
+  const raw: LocusBalanceRaw = body.data || body;
+  // Locus returns usdc_balance as a string (e.g. "9.0"); coerce + fall back to 0.
+  const availableNum = Number(raw.usdc_balance);
+  return {
+    available: Number.isFinite(availableNum) ? availableNum : 0,
+    currency: 'USDC',
+    walletAddress: raw.wallet_address || '',
+  };
 }
 
 export async function sendPayment(params: {
@@ -155,8 +172,9 @@ export async function sendMail(params: {
 
 const USDC_DECIMALS = 6;
 
-/** Convert USDC float (e.g. 10.50) to wei bigint */
+/** Convert USDC float (e.g. 10.50) to wei bigint. Guards against NaN/Infinity. */
 export function toUSDCWei(amount: number): bigint {
+  if (!Number.isFinite(amount)) return 0n;
   return BigInt(Math.round(amount * 10 ** USDC_DECIMALS));
 }
 
