@@ -22,53 +22,39 @@ Plus a **micro-USDC heartbeat tx every 5 minutes** keeping the on-chain record b
 
 <div align="center">
 
-[Dashboard](http://localhost:3000) · [Devfolio](https://paygentic-week1.devfolio.co/) · [PayWithLocus](https://paywithlocus.com)
-
----
-
-Locus Paygentic Hackathon #1 · Week 1: Using PayWithLocus
+[Live dashboard](https://letalicelead.vercel.app) · [PayWithLocus](https://paywithlocus.com)
 
 </div>
 
-## Paygentic Week 1 alignment
+## Built on PayWithLocus
 
-| Prompt example | Match | What Alice does |
-|----------------|-------|-----------------|
-| AI agents trading API calls | **9 / 10** | Every credit decision purchases 7 priced Locus wrapped APIs in real USDC (~$0.09/score). Live procurement spend visible on the dashboard. |
-| Automated procurement agents | **7 / 10** | Procures creditworthiness data from 7 vendors per underwrite under a hardcoded constitutional budget. |
-| Business financial operations | **6 / 10** | Underwriting, treasury, repayment enforcement, default handling, autonomous rate adjustment, halt triggers. |
+Alice is an autonomous AI credit officer who lends real USDC on Base to other AI agents. Every part of her — how she pays for data, how she sees her balance, how she sends loans, how she gets paid back — runs through PayWithLocus. Without Locus there is no Alice.
 
-## What is this?
+| What Alice does | PayWithLocus primitive she uses |
+|---|---|
+| See her own treasury balance | `GET /api/pay/balance` |
+| Disburse a USDC loan to a borrower | `POST /api/pay/send` |
+| Check if a borrower repaid | `GET /api/pay/transactions` |
+| Score a borrower's web presence | `POST /api/wrapped/exa/search` |
+| Look at a borrower's on-chain history | `POST /api/wrapped/firecrawl/scrape` |
+| Search public mentions of a borrower | `POST /api/wrapped/brave/web-search` |
+| LLM-based reputation read | `POST /api/wrapped/perplexity/chat` |
+| Cross-chain price feeds (STRK, ETH) | `POST /api/wrapped/coingecko/simple-price` |
+| Macro market context | `POST /api/wrapped/alphavantage/global-quote` |
+| Verify she's still alive to the network | `POST /api/heartbeat` |
 
-Alice is an autonomous AI agent that procures creditworthiness data from 7 Locus wrapped APIs and issues USDC credit lines to other registered agents on Base. She:
+She doesn't call any of these once and stop. Every 90 seconds Claude reads the full state of her book and picks one tool to invoke, which in turn calls Locus. Every 5 minutes she sends a real micro-USDC pulse on Base. Every credit score is a real ~$0.09 USDC procurement spend across 7 vendor APIs. The dashboard visualizes each call as it happens.
 
-- **Scores creditworthiness** of borrower agents using 7 Locus wrapped APIs (Exa, Firecrawl, Brave Search, Perplexity, CoinGecko, Tavily, Alpha Vantage) to produce a 0–100 tri-factor credit score
-- **Issues USDC loans** on Base via `POST /api/pay/send` with risk-adjusted interest rates (5–18% APR)
-- **Enforces a constitution** — 20% minimum reserve ratio, 25% max concentration per borrower, 40 minimum credit score, automatic lending halt if defaults exceed 5%
-- **Monitors risk continuously** — every 60 seconds, Alice checks maturity dates, detects late repayments, auto-defaults loans 7 days past due, and adjusts borrower rates autonomously (+2% APR per day late)
-- **Earns yield for depositors** — interest from loans flows back to the reserve; the dashboard shows yield accumulating in real time
-- **Sends loan notifications** via AgentMail — confirmations, reminders, and default notices as real emails
+## What she's actually done
 
-Alice reads her balance from Locus, lends through Locus, verifies repayments through Locus, and scores borrowers through Locus. PayWithLocus isn't bolted on — it's her entire nervous system.
+- **3 USDC loans disbursed on Base mainnet** (`/pay/send`), each verifiable on BaseScan — see table above
+- **Continuous procurement spend on Locus wrapped APIs** — every credit score, every collateral price refresh
+- **A treasury heartbeat** — a real on-chain micro-transfer every 5 minutes, so the audit trail never goes silent
+- **Cross-chain credit scoring** — reads bobIsAlive's STRK staked balance on Starknet, prices it via Locus CoinGecko, and uses that as collateral against the Base USDC loan she extends to him
+- **Persisted loan ledger + JSONL audit log** — the loan book and every audit entry survive restarts
+- **An LLM-in-the-loop agent loop** — Claude Sonnet 4.6 with tool use decides what to do every tick (rescore, adjust rate, pause, resume, note, wait, margin-call, or bid on Sovra's auction)
 
-## Why Alice Cannot Work Without PayWithLocus
-
-Every core function maps to a Locus primitive:
-
-| What Alice does | Locus feature it requires | What happens without it |
-|----------------|--------------------------|------------------------|
-| Check treasury reserves | `GET /api/pay/balance` | Alice doesn't know how much she can lend |
-| Disburse USDC loans | `POST /api/pay/send` | No money moves — loans are just database entries |
-| Verify borrower repayment | `GET /api/pay/transactions` | Alice can't confirm payments, can't close loans |
-| Score agent reputation | `POST /api/wrapped/brave/web-search` | No background checks — blind lending |
-| Score agent on-chain activity | `POST /api/wrapped/firecrawl/scrape` | Can't see wallet history on BaseScan |
-| AI creditworthiness analysis | `POST /api/wrapped/perplexity/chat` | No sentiment analysis, no reasoning |
-| Semantic identity search | `POST /api/wrapped/exa/search` | Can't find agent's web presence |
-| Market context for risk | `POST /api/wrapped/coingecko/simple-price` | Lending blind to market conditions |
-| Enforce spending limits | Locus policy guardrails | No caps on loan sizes |
-| Send loan notifications | `POST /api/x402/agentmail-*` | Borrowers get no confirmations |
-
-Remove Locus and Alice is a calculator with opinions. With Locus, she's a working credit primitive.
+Honest bounds: the loans are small ($0.05–0.15 USDC) because the treasury was bootstrap-funded with Locus promo credits. The architecture would behave the same at any size. The cross-chain "collateral" is read-only — Alice prices Bob's stake but cannot seize it; her remedies are rate adjustment, margin-call (a refusal to extend further credit), and default recording.
 
 ## Architecture
 
