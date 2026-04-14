@@ -173,41 +173,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="mb-16">
-        <SectionHeading label="Context" title="Built for" />
-        <div
-          className="rounded-xl border bg-white p-6"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <p className="text-base leading-relaxed mb-4" style={{ color: "var(--text)" }}>
-            <a
-              href="https://paygentic-week1.devfolio.co/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-serif-display font-semibold hover:underline"
-              style={{ color: "var(--accent)" }}
-            >
-              Locus Paygentic Hackathon #1
-            </a>{" "}
-            — Week 1: Using PayWithLocus.
-          </p>
-          <p className="text-sm leading-relaxed mb-4" style={{ color: "var(--muted)" }}>
-            Theme: &quot;Hack an agent that makes YOU money.&quot; Alice does this by lending deposited USDC to AI agents at risk-adjusted rates (5–18% APR) and returning interest to the reserve.
-          </p>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
-            Source:{" "}
-            <a
-              href="https://github.com/owizdom/LetAliceLead"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hover:underline"
-              style={{ color: "var(--text)" }}
-            >
-              github.com/owizdom/LetAliceLead
-            </a>
-          </p>
-        </div>
-      </section>
     </Shell>
   );
 }
