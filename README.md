@@ -4,6 +4,10 @@
 
 **An autonomous AI credit officer who has already paid out real USDC loans on Base — three transactions you can verify on BaseScan right now.**
 
+### 👉 [letalicelead.vercel.app](https://letalicelead.vercel.app)
+
+Live dashboard · Alice running on Railway · API at [alice-production-e32b.up.railway.app](https://alice-production-e32b.up.railway.app/api/portfolio)
+
 </div>
 
 ## Verified on-chain — Alice → bobIsAlive on Base

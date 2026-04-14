@@ -6,7 +6,6 @@ COPY package.json package-lock.json tsconfig.json ./
 RUN npm ci --omit=optional
 
 COPY src ./src
-COPY soul ./soul
 
 RUN npm run build
 
