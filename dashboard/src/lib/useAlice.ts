@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   fetchDashboard,
   fetchAuditLog,
@@ -11,6 +11,9 @@ import {
 } from "./api";
 
 const POLL_INTERVAL = 2000;
+// Only flip to "offline" after this many consecutive failures.
+// At 2s cadence, 5 = 10s of sustained failure before banner appears.
+const FAILURE_THRESHOLD = 5;
 
 export interface AliceState {
   dashboard: Dashboard | null;
@@ -30,22 +33,47 @@ export function useAlice(): AliceState {
   const [isLive, setIsLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track consecutive failures per endpoint so transient blips don't trip the banner
+  const failureStreak = useRef(0);
+
   const refresh = useCallback(async () => {
-    try {
-      const [dash, audit, registry] = await Promise.all([
-        fetchDashboard(),
-        fetchAuditLog(150),
-        fetchRegistry(),
-      ]);
-      setDashboard(dash);
-      setAuditEntries(audit.entries);
-      setRiskCycles(audit.riskCycles);
-      setRegistryAgents(registry.agents);
+    // Fetch independently — a single failing endpoint shouldn't blank the whole dashboard
+    const results = await Promise.allSettled([
+      fetchDashboard(),
+      fetchAuditLog(150),
+      fetchRegistry(),
+    ]);
+
+    const [dashResult, auditResult, registryResult] = results;
+
+    if (dashResult.status === "fulfilled") setDashboard(dashResult.value);
+    if (auditResult.status === "fulfilled") {
+      setAuditEntries(auditResult.value.entries);
+      setRiskCycles(auditResult.value.riskCycles);
+    }
+    if (registryResult.status === "fulfilled") setRegistryAgents(registryResult.value.agents);
+
+    const allFailed = results.every((r) => r.status === "rejected");
+    const anyFailed = results.some((r) => r.status === "rejected");
+
+    if (allFailed) {
+      failureStreak.current += 1;
+      if (failureStreak.current >= FAILURE_THRESHOLD) {
+        setIsLive(false);
+        const firstErr = results.find((r) => r.status === "rejected") as PromiseRejectedResult | undefined;
+        setError(firstErr?.reason instanceof Error ? firstErr.reason.message : "Connection failed");
+      }
+    } else {
+      failureStreak.current = 0;
       setIsLive(true);
       setError(null);
-    } catch (err) {
-      setIsLive(false);
-      setError(err instanceof Error ? err.message : "Connection failed");
+      // Log partial failures to console but don't surface to user — last-known values remain on screen
+      if (anyFailed) {
+        const failed = results
+          .map((r, i) => (r.status === "rejected" ? ["dashboard", "audit", "registry"][i] : null))
+          .filter(Boolean);
+        console.debug("[useAlice] partial fetch failure:", failed);
+      }
     }
   }, []);
 
