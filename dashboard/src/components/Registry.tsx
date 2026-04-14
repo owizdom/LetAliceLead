@@ -359,17 +359,24 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
                 <span className="font-mono-tokens" style={{ color: 'var(--muted)' }}>
                   {chainLabel(agent.chain)}
                 </span>
-                {agent.wallet && agent.wallet !== '0x0000000000000000000000000000000000000000' && (
-                  <a
-                    href={`https://basescan.org/address/${agent.wallet}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-mono-tokens hover:underline"
-                    style={{ color: 'var(--muted)' }}
-                  >
-                    {agent.wallet.slice(0, 6)}…{agent.wallet.slice(-4)}
-                  </a>
-                )}
+                {/* Only show the agent's external wallet for legacy agents that don't have a managed Alice-issued wallet */}
+                {!agent.managedWallet &&
+                  agent.wallet &&
+                  agent.wallet !== '0x0000000000000000000000000000000000000000' && (
+                    <a
+                      href={
+                        agent.chain === 'starknet'
+                          ? `https://sepolia.voyager.online/contract/${agent.wallet}`
+                          : `https://basescan.org/address/${agent.wallet}`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-mono-tokens hover:underline"
+                      style={{ color: 'var(--muted)' }}
+                    >
+                      {agent.wallet.slice(0, 6)}…{agent.wallet.slice(-4)}
+                    </a>
+                  )}
               </div>
               <div className="flex items-center gap-3">
                 {agent.website && (
