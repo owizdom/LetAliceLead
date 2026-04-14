@@ -77,9 +77,13 @@ export function persistLoans(): void {
 }
 
 const loans: Map<string, Loan> = loadLoans();
-// Re-deploy capital for any active loan loaded from disk so the treasury
-// reflects what's actually outstanding.
-{
+
+/**
+ * Re-deploy capital for any loans loaded from disk on boot. Must be called
+ * AFTER initTreasury() — the treasury module's `state` object is not yet
+ * initialized at module-import time.
+ */
+export function restoreOutstandingCapital(): bigint {
   let outstanding = 0n;
   for (const l of loans.values()) {
     if (l.status === LoanStatus.ACTIVE || l.status === LoanStatus.REPAYING) {
@@ -87,6 +91,7 @@ const loans: Map<string, Loan> = loadLoans();
     }
   }
   if (outstanding > 0n) deployCapital(outstanding);
+  return outstanding;
 }
 
 /**

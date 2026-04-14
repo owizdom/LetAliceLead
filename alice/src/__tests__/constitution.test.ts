@@ -36,8 +36,9 @@ describe('constitution', () => {
   });
 
   it('constitution constants match documented values', () => {
-    expect(CONSTITUTION.minReserveRatioPct).toBe(20);
-    expect(CONSTITUTION.emergencyReserveRatioPct).toBe(10);
+    // Demo-tuned thresholds: see constitution/rules.ts comment.
+    expect(CONSTITUTION.minReserveRatioPct).toBe(5);
+    expect(CONSTITUTION.emergencyReserveRatioPct).toBe(2);
     expect(CONSTITUTION.maxConcentrationPct).toBe(25);
     expect(CONSTITUTION.minCreditScore).toBe(40);
     expect(CONSTITUTION.maxDefaultRatePct).toBe(5);
