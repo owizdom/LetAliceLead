@@ -4,6 +4,7 @@ import { useAlice } from "@/lib/useAlice";
 import { weiToUSDC } from "@/lib/api";
 import Shell, { SectionHeading } from "@/components/Shell";
 import HeroSection from "@/components/HeroSection";
+import FundBanner from "@/components/FundBanner";
 import SignalLoom from "@/components/SignalLoom";
 import StatsGrid from "@/components/StatsGrid";
 import ActivityFeed from "@/components/ActivityFeed";
@@ -16,6 +17,11 @@ export default function OverviewPage() {
       <HeroSection
         totalYield={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
         totalReserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
+      />
+
+      <FundBanner
+        bankWallet={dashboard?.bankWallet}
+        reserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
       />
 
       <section className="mb-16">
