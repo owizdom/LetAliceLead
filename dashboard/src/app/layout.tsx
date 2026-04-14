@@ -1,21 +1,30 @@
 import type { Metadata } from "next";
-import { DM_Sans, Source_Serif_4, JetBrains_Mono } from "next/font/google";
+import { Fraunces, Instrument_Sans, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const dmSans = DM_Sans({
+// Display: Fraunces — variable serif, using the SOFT axis for rounded friendly
+// personality on the wordmark and headlines. Not Inter. Not Playfair. Not generic.
+const fraunces = Fraunces({
   subsets: ["latin"],
-  variable: "--font-sans-loaded",
+  style: ["normal", "italic"],
+  axes: ["SOFT", "opsz"],
+  variable: "--font-display-loaded",
   display: "swap",
 });
 
-const sourceSerif = Source_Serif_4({
+// Body: Instrument Sans — distinctive geometric humanist sans, warmer than
+// Inter/Roboto with softly rounded terminals. Pairs with Fraunces.
+const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
-  variable: "--font-serif-loaded",
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-body-loaded",
   display: "swap",
 });
 
 const jetBrainsMono = JetBrains_Mono({
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-mono-loaded",
   display: "swap",
 });
@@ -33,9 +42,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${dmSans.variable} ${sourceSerif.variable} ${jetBrainsMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${instrumentSans.variable} ${jetBrainsMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col" style={{ fontFamily: "var(--font-sans-loaded), system-ui, sans-serif" }}>
+      <body
+        className="min-h-full"
+        style={{ fontFamily: "var(--font-body-loaded), 'Instrument Sans', system-ui, sans-serif" }}
+      >
         {children}
       </body>
     </html>

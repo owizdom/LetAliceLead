@@ -6,9 +6,10 @@ import Shell, { PageTitle, SectionHeading } from "@/components/Shell";
 import StatsGrid from "@/components/StatsGrid";
 import LoansTable from "@/components/LoansTable";
 import ActivityFeed from "@/components/ActivityFeed";
+import FundBanner from "@/components/FundBanner";
 
 export default function LedgerPage() {
-  const { dashboard, auditEntries, isLive, error } = useAlice();
+  const { dashboard, auditEntries } = useAlice();
 
   const allLoans = dashboard
     ? [
@@ -19,11 +20,12 @@ export default function LedgerPage() {
     : [];
 
   return (
-    <Shell isLive={isLive} bankWallet={dashboard?.bankWallet} error={error}>
-      <PageTitle
-        eyebrow="Ledger"
-        title="Loan book & portfolio"
-        lead="Every loan Alice has ever issued. Reserve movements, interest earned, and defaulters — all recorded immutably in the audit trail."
+    <Shell>
+      <PageTitle eyebrow="Ledger" title="Loan book" />
+
+      <FundBanner
+        bankWallet={dashboard?.bankWallet}
+        reserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
       />
 
       <section className="mb-16">

@@ -1,58 +1,37 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useAlice } from "@/lib/useAlice";
-import { weiToUSDC } from "@/lib/api";
-import Shell, { SectionHeading } from "@/components/Shell";
-import HeroSection from "@/components/HeroSection";
-import FundBanner from "@/components/FundBanner";
-import LivePreview from "@/components/LivePreview";
-import SignalLoom from "@/components/SignalLoom";
-import StatsGrid from "@/components/StatsGrid";
-import ActivityFeed from "@/components/ActivityFeed";
+import { deriveMood } from "@/lib/aliceState";
+import Shell from "@/components/Shell";
+import AliceFace from "@/components/AliceFace";
+import AliceRunner from "@/components/AliceRunner";
+import AliceMonologue from "@/components/AliceMonologue";
 
-export default function OverviewPage() {
-  const { dashboard, auditEntries, registryAgents, isLive, error } = useAlice();
+export default function BrainPage() {
+  const { dashboard, auditEntries, registryAgents } = useAlice();
+  const [now, setNow] = useState(Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const mood = deriveMood(auditEntries, false, now);
 
   return (
-    <Shell isLive={isLive} bankWallet={dashboard?.bankWallet} error={error}>
-      <HeroSection
-        totalYield={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
-        totalReserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
+    <Shell>
+      <AliceFace mood={mood} auditEntries={auditEntries} />
+      <AliceRunner
+        agents={registryAgents}
+        monologue={dashboard?.latestMonologue?.text}
+        procurement={dashboard?.procurement}
       />
-
-      <section className="mb-16">
-        <SectionHeading label="Registered" title="Live agents on Alice's books" />
-        <LivePreview agents={registryAgents} />
-      </section>
-
-      <FundBanner
-        bankWallet={dashboard?.bankWallet}
-        reserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
+      <AliceMonologue
+        text={dashboard?.latestMonologue?.text}
+        agentName={dashboard?.latestMonologue?.agentName}
+        timestamp={dashboard?.latestMonologue?.timestamp}
       />
-
-      <section className="mb-16">
-        <SectionHeading label="Portfolio" title="Treasury at a glance" />
-        <StatsGrid
-          reserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
-          deployed={dashboard ? weiToUSDC(dashboard.portfolio.deployedCapital) : 0}
-          available={dashboard ? weiToUSDC(dashboard.portfolio.availableCapital) : 0}
-          interestEarned={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
-          weightedAPR={dashboard?.metrics.weightedAverageAPR ?? 0}
-          avgScore={dashboard?.metrics.averageCreditScore ?? 0}
-          procurementSpend={dashboard?.procurement?.totalSpendUsdc ?? 0}
-          procurementCalls={dashboard?.procurement?.callCount ?? 0}
-        />
-      </section>
-
-      <section className="mb-16">
-        <SectionHeading label="Locus" title="Live wrapped-API signal" />
-        <SignalLoom entries={auditEntries} />
-      </section>
-
-      <section className="mb-16">
-        <SectionHeading label="Live" title="Recent activity" />
-        <ActivityFeed entries={auditEntries} />
-      </section>
     </Shell>
   );
 }

@@ -1,53 +1,117 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg: #FAF9F7;
-  --color-surface-1: #FFFFFF;
-  --color-surface-2: #F0EFEB;
-  --color-surface-3: #E5E4E0;
-  --color-border: #E0DED8;
-  --color-border-light: #D0CEC8;
-  --color-text: #1A1A19;
-  --color-muted: #78776E;
-  --color-accent: #D97757;
-  --color-accent-soft: #D9775712;
-  --color-success: #5A7A3E;
-  --color-danger: #B34A3E;
+  --color-bg: #FBF6EC;
+  --color-bg-warm: #F6E6D0;
+  --color-surface-1: #FFFBF4;
+  --color-surface-2: #F2EADB;
+  --color-border: #E8DDC7;
+  --color-border-light: #F0E7D3;
+  --color-text: #2A2419;
+  --color-text-soft: #5A4F3F;
+  --color-muted: #8C7E69;
+  --color-muted-soft: #B8AB93;
 
-  --font-sans: "DM Sans", system-ui, sans-serif;
-  --font-serif: "Source Serif 4", "Source Serif Pro", Georgia, serif;
+  --color-peach: #F4B393;
+  --color-peach-soft: #FBD9C4;
+  --color-accent: #D97757;
+  --color-accent-deep: #B85A3D;
+  --color-mint: #A8D0B4;
+  --color-mint-deep: #5A8A66;
+  --color-sky: #B5D1E5;
+  --color-sky-deep: #3F6A8A;
+  --color-rose: #E8A7A2;
+  --color-rose-deep: #B04B44;
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Instrument Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Geist Mono", Menlo, monospace;
 }
 
 :root {
-  --bg: #FAF9F7;
-  --surface-1: #FFFFFF;
-  --surface-2: #F0EFEB;
-  --surface-3: #E5E4E0;
-  --border: #E0DED8;
-  --border-light: #D0CEC8;
-  --text: #1A1A19;
-  --muted: #78776E;
+  --bg: #FBF6EC;
+  --bg-warm: #F6E6D0;
+  --surface-1: #FFFBF4;
+  --surface-2: #F2EADB;
+  --border: #E8DDC7;
+  --border-light: #F0E7D3;
+  --text: #2A2419;
+  --text-soft: #5A4F3F;
+  --muted: #8C7E69;
+  --muted-soft: #B8AB93;
+
+  --peach: #F4B393;
+  --peach-soft: #FBD9C4;
   --accent: #D97757;
-  --accent-soft: #D9775712;
-  --success: #5A7A3E;
-  --danger: #B34A3E;
+  --accent-deep: #B85A3D;
+  --mint: #A8D0B4;
+  --mint-deep: #5A8A66;
+  --sky: #B5D1E5;
+  --sky-deep: #3F6A8A;
+  --rose: #E8A7A2;
+  --rose-deep: #B04B44;
+
+  /* Alice's moods — warm + simple colors */
+  --mood-chilling: var(--mint-deep);
+  --mood-chilling-bg: var(--mint);
+  --mood-thinking: var(--accent);
+  --mood-thinking-bg: var(--peach);
+  --mood-deciding: var(--accent-deep);
+  --mood-deciding-bg: var(--peach-soft);
+  --mood-paused: var(--rose-deep);
+  --mood-paused-bg: var(--rose);
 }
 
 html, body {
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-sans);
+  font-family: var(--font-body-loaded), "Instrument Sans", system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  line-height: 1.55;
 }
 
-.font-serif-display {
-  font-family: var(--font-serif);
-  font-feature-settings: "ss01", "ss02";
+/* Ambient warm gradient — sits behind everything, slowly shifts */
+body::before {
+  content: '';
+  position: fixed;
+  inset: -20vh -20vw;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(40vw 40vw at 20% 20%, var(--peach-soft) 0%, transparent 60%),
+    radial-gradient(38vw 38vw at 85% 30%, var(--sky) 0%, transparent 55%),
+    radial-gradient(50vw 50vw at 60% 90%, var(--mint) 0%, transparent 60%),
+    radial-gradient(30vw 30vw at 10% 80%, var(--rose) 0%, transparent 55%);
+  filter: blur(40px) saturate(0.9);
+  opacity: 0.55;
+  animation: ambient-drift 30s ease-in-out infinite alternate;
+}
+@keyframes ambient-drift {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  100% { transform: translate(-3vw, 2vh) rotate(6deg); }
+}
+
+/* Subtle paper grain on top to warm the ambient blobs */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Put actual content above the ambient layers */
+body > * { position: relative; z-index: 2; }
+
+.font-display {
+  font-family: var(--font-display-loaded), "Fraunces", Georgia, serif;
+  font-feature-settings: "ss01";
+  font-variation-settings: "SOFT" 100, "opsz" 144;
 }
 
 .font-mono-tokens {
-  font-family: var(--font-mono);
+  font-family: var(--font-mono-loaded), "JetBrains Mono", monospace;
 }
 
 .tabular-nums {
@@ -56,11 +120,178 @@ html, body {
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+::-webkit-scrollbar-thumb { background: var(--muted-soft); border-radius: 3px; }
+
+/* ───────────────── Animations ───────────────── */
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
 }
-.pulse-dot { animation: pulse-dot 2.5s ease-in-out infinite; }
+.pulse-dot { animation: pulse-dot 2.4s ease-in-out infinite; }
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.025); }
+}
+
+@keyframes float-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+.float-bob { animation: float-bob 4.2s ease-in-out infinite; }
+
+@keyframes float-bob-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.float-bob-slow { animation: float-bob-slow 6s ease-in-out infinite; }
+
+@keyframes blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  94%, 98% { transform: scaleY(0.1); }
+}
+.blink { animation: blink 5.5s ease-in-out infinite; transform-origin: center; }
+.blink-delay { animation-delay: -2.5s; }
+
+@keyframes gentle-sway {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+
+@keyframes sparkle-fly {
+  0% { transform: translate(0, 0) scale(0); opacity: 0; }
+  20% { opacity: 1; transform: translate(calc(var(--tx) * 0.2), calc(var(--ty) * 0.2)) scale(1); }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0.2); opacity: 0; }
+}
+
+/* ───────────────── Alice's face ───────────────── */
+
+.alice-face {
+  position: relative;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 32%, #FFE0CF 0%, var(--peach) 45%, var(--accent) 100%);
+  box-shadow:
+    inset -18px -22px 42px rgba(184, 90, 61, 0.28),
+    inset 14px 16px 36px rgba(255, 255, 255, 0.55),
+    0 20px 50px rgba(217, 119, 87, 0.25),
+    0 0 0 1px rgba(184, 90, 61, 0.08);
+  animation: breathe 4s ease-in-out infinite;
+  transition: background 0.8s ease, box-shadow 0.8s ease;
+}
+
+.alice-face.thinking {
+  background: radial-gradient(circle at 32% 32%, #FFE0CF 0%, #F4B393 40%, var(--accent) 100%);
+  animation-duration: 2.2s;
+}
+
+.alice-face.deciding {
+  background: radial-gradient(circle at 32% 32%, #FFC8B3 0%, var(--accent) 45%, var(--accent-deep) 100%);
+  animation-duration: 1.6s;
+}
+
+.alice-face.paused {
+  background: radial-gradient(circle at 32% 32%, #F5C0BB 0%, var(--rose) 45%, var(--rose-deep) 100%);
+  animation-duration: 3.2s;
+}
+
+.alice-face.chilling {
+  /* default peach — keep warm */
+}
+
+/* Eyes + mouth are children absolutely-positioned over the face */
+.alice-eye {
+  position: absolute;
+  top: 44%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #2A1A0F;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.25);
+}
+.alice-eye.left  { left: 34%; }
+.alice-eye.right { right: 34%; }
+
+.alice-mouth {
+  position: absolute;
+  bottom: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 38px;
+  height: 20px;
+  border-bottom: 3.5px solid #2A1A0F;
+  border-radius: 0 0 24px 24px;
+}
+.alice-mouth.paused {
+  /* flat line when paused */
+  height: 3px;
+  border: none;
+  background: #2A1A0F;
+  border-radius: 2px;
+  width: 28px;
+}
+
+.alice-cheek {
+  position: absolute;
+  top: 56%;
+  width: 26px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(224, 100, 80, 0.4) 0%, transparent 70%);
+  filter: blur(1.5px);
+}
+.alice-cheek.left  { left: 14%; }
+.alice-cheek.right { right: 14%; }
+
+/* ───────────────── Vendor chip ───────────────── */
+
+.vendor-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-soft);
+  transition: all 0.4s ease;
+}
+.vendor-chip .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted-soft);
+  transition: all 0.4s ease;
+}
+.vendor-chip.on {
+  background: var(--peach-soft);
+  border-color: var(--accent);
+  color: var(--accent-deep);
+  box-shadow: 0 4px 14px rgba(217,119,87,0.25);
+  transform: translateY(-1px);
+}
+.vendor-chip.on .dot {
+  background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(217,119,87,0.25), 0 0 10px rgba(217,119,87,0.7);
+}
+
+/* ───────────────── Pill ───────────────── */
+
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  color: var(--text-soft);
+}
+
+.pill-mood-chilling  { background: color-mix(in srgb, var(--mint) 40%, var(--surface-1)); border-color: var(--mint-deep); color: var(--mint-deep); }
+.pill-mood-thinking  { background: var(--peach-soft); border-color: var(--accent); color: var(--accent-deep); }
+.pill-mood-deciding  { background: var(--peach); border-color: var(--accent-deep); color: var(--accent-deep); }
+.pill-mood-paused    { background: color-mix(in srgb, var(--rose) 45%, var(--surface-1)); border-color: var(--rose-deep); color: var(--rose-deep); }
