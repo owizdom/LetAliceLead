@@ -1,0 +1,49 @@
+{
+  "greeting": [
+    "greeting-00.mp3",
+    "greeting-01.mp3",
+    "greeting-02.mp3"
+  ],
+  "rescore_agent": [
+    "rescore_agent-00.mp3",
+    "rescore_agent-01.mp3",
+    "rescore_agent-02.mp3",
+    "rescore_agent-03.mp3",
+    "rescore_agent-04.mp3",
+    "rescore_agent-05.mp3"
+  ],
+  "adjust_rate": [
+    "adjust_rate-00.mp3",
+    "adjust_rate-01.mp3",
+    "adjust_rate-02.mp3",
+    "adjust_rate-03.mp3",
+    "adjust_rate-04.mp3"
+  ],
+  "pause_lending": [
+    "pause_lending-00.mp3",
+    "pause_lending-01.mp3",
+    "pause_lending-02.mp3",
+    "pause_lending-03.mp3"
+  ],
+  "resume_lending": [
+    "resume_lending-00.mp3",
+    "resume_lending-01.mp3",
+    "resume_lending-02.mp3",
+    "resume_lending-03.mp3"
+  ],
+  "note": [
+    "note-00.mp3",
+    "note-01.mp3",
+    "note-02.mp3",
+    "note-03.mp3"
+  ],
+  "wait": [
+    "wait-00.mp3",
+    "wait-01.mp3",
+    "wait-02.mp3",
+    "wait-03.mp3",
+    "wait-04.mp3",
+    "wait-05.mp3",
+    "wait-06.mp3"
+  ]
+}
