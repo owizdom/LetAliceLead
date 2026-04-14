@@ -67,6 +67,15 @@ function saveLoans(): void {
   }
 }
 
+/**
+ * Public hook so background loops (e.g. collateralMonitor) can flush
+ * in-place loan mutations to disk without depending on this module's
+ * private save function.
+ */
+export function persistLoans(): void {
+  saveLoans();
+}
+
 const loans: Map<string, Loan> = loadLoans();
 // Re-deploy capital for any active loan loaded from disk so the treasury
 // reflects what's actually outstanding.

@@ -84,8 +84,16 @@ export async function fetchIdentityData(agentId: number, agentWallet: string): P
       hasWallet: true,
       agentURI: results[0]?.url || `agent://${agentId}`,
     };
-  } catch {
-    // Deterministic fallback — different wallets produce different profiles
+  } catch (err) {
+    // Deterministic fallback — different wallets produce different profiles.
+    // We emit an audit so the dashboard / activity feed can flag the score
+    // as ESTIMATED rather than letting it pass as a real Locus-derived
+    // assessment.
+    await auditLog('credit.score.fallback', {
+      agentId,
+      factor: 'identity',
+      reason: err instanceof Error ? err.message : String(err),
+    });
     const seed = walletSeed(agentWallet);
     const ageDays = [365, 90, 3][seed % 3]; // veteran / moderate / new
     const metadataCount = [5, 3, 1][seed % 3];
@@ -157,8 +165,12 @@ export async function fetchReputationData(agentId: number, agentWallet: string):
       positiveRatio,
       recentTrend,
     };
-  } catch {
-    // Deterministic fallback — different wallets, different reputations
+  } catch (err) {
+    await auditLog('credit.score.fallback', {
+      agentId,
+      factor: 'reputation',
+      reason: err instanceof Error ? err.message : String(err),
+    });
     const seed = walletSeed(agentWallet);
     const profiles: Array<CreditFactors['reputation']> = [
       { totalFeedbackCount: 120, averageValue: 92, uniqueClients: 8, positiveRatio: 0.95, recentTrend: 'improving' },
@@ -217,8 +229,12 @@ export async function fetchFinancialData(
       transactionCount30d: transactionCount,
       existingDebtAmount: existingDebt,
     };
-  } catch {
-    // Deterministic fallback — different wallets, different financials
+  } catch (err) {
+    await auditLog('credit.score.fallback', {
+      agentWallet,
+      factor: 'financial',
+      reason: err instanceof Error ? err.message : String(err),
+    });
     const seed = walletSeed(agentWallet);
     const profiles: Array<Omit<CreditFactors['financial'], 'existingDebtAmount'>> = [
       { walletBalance: BigInt(50_000_000_000), totalInflows30d: BigInt(10_000_000_000), totalOutflows30d: BigInt(5_000_000_000), transactionCount30d: 85 },

@@ -7,6 +7,7 @@ import Shell from "@/components/Shell";
 import AliceFace from "@/components/AliceFace";
 import AliceRunner from "@/components/AliceRunner";
 import AliceMonologue from "@/components/AliceMonologue";
+import HomeProofStrip from "@/components/HomeProofStrip";
 
 export default function BrainPage() {
   const { dashboard, auditEntries, registryAgents } = useAlice();
@@ -22,15 +23,16 @@ export default function BrainPage() {
   return (
     <Shell>
       <AliceFace mood={mood} auditEntries={auditEntries} />
-      <AliceRunner
-        agents={registryAgents}
-        monologue={dashboard?.latestMonologue?.text}
-        procurement={dashboard?.procurement}
-      />
+      <HomeProofStrip />
       <AliceMonologue
         text={dashboard?.latestMonologue?.text}
         agentName={dashboard?.latestMonologue?.agentName}
         timestamp={dashboard?.latestMonologue?.timestamp}
+      />
+      <AliceRunner
+        agents={registryAgents}
+        monologue={dashboard?.latestMonologue?.text}
+        procurement={dashboard?.procurement}
       />
     </Shell>
   );

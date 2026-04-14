@@ -248,6 +248,13 @@ async function runCollateralCycle(): Promise<void> {
       });
     }
   }
+  // Flush refreshed pricing to disk so it survives restarts.
+  try {
+    const { persistLoans } = await import('./loanManager');
+    persistLoans();
+  } catch {
+    /* ignore — best effort */
+  }
   await auditLog('collateral.cycle.complete', { cycleId, loanCount: loans.length });
 }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { RegisteredAgentData, ProcurementSummary } from "@/lib/api";
 
 interface AgentRaceProps {
@@ -21,25 +20,14 @@ const PALETTE: { core: string; mid: string; deep: string }[] = [
   { core: "#FBEDC4", mid: "#F5DCA0", deep: "#C49A3D" }, // butter
 ];
 
-const QUIPS: string[] = [
-  "{name}: built different.",
-  "{name}: cleared one, no problem.",
-  "{name}: that mushroom never had a chance.",
-  "{name}: best loan I never took.",
-  "{name}: jumping is just a credit decision.",
-  "{name}: don't trip, don't default.",
-  "{name}: still in the green over here.",
-  "{name}: another mushroom, another jump.",
-  "{name}: vibes are strong today.",
-  "{name}: keep running, keep earning.",
-];
-
-const STAGE_HEIGHT = 240;
-const GROUND_Y = 162;
-const RUNNER_SIZE = 40;
-const NAME_OFFSET = 22;
-const OBSTACLE_W = 24;
-const OBSTACLE_H = 30;
+// Mid-size stage — runner is supporting ambient motion but readable, not a
+// thin ribbon. Face above + monologue below still carry the message.
+const STAGE_HEIGHT = 180;
+const GROUND_Y = 116;
+const RUNNER_SIZE = 36;
+const NAME_OFFSET = 20;
+const OBSTACLE_W = 22;
+const OBSTACLE_H = 28;
 const GRAVITY = 0.55;
 const JUMP_VELOCITY = 11.4;
 const SPEED = 4.4;
@@ -83,10 +71,6 @@ export default function AgentRace({ agents, monologue, procurement }: AgentRaceP
   const [meters, setMeters] = useState(0);
   const [bestMeters, setBestMeters] = useState(0);
   const bestMetersRef = useRef(0);
-  const [quip, setQuip] = useState<{ text: string; agentId: number }>({
-    text: "{name}: built different.",
-    agentId: 0,
-  });
 
   // Runner state held in refs so the loop stays stable
   const runnersRef = useRef<RunnerState[]>([]);
@@ -103,8 +87,8 @@ export default function AgentRace({ agents, monologue, procurement }: AgentRaceP
   // Sync runners list — borrowers cluster on the left, Alice leads way ahead on the right
   useEffect(() => {
     const sorted = [...agents].sort((a, b) => a.agentId - b.agentId).slice(0, 5);
-    const BORROWER_SPACING = 62;
-    const LEADER_GAP = 170; // visible lead so Alice is clearly out in front
+    const BORROWER_SPACING = 56;
+    const LEADER_GAP = 150;
 
     const borrowerRunners: RunnerState[] = sorted.map((a, i) => {
       const existing = runnersRef.current.find((r) => r.agentId === a.agentId);
@@ -165,27 +149,9 @@ export default function AgentRace({ agents, monologue, procurement }: AgentRaceP
     }
   }, []);
 
-  // Quip rotation — pick a random runner each cycle. If Alice has a fresh monologue,
-  // surface that as a one-shot bubble before resuming the rotation.
-  useEffect(() => {
-    const pick = () => {
-      const runners = runnersRef.current;
-      if (!runners.length) return;
-      const r = runners[Math.floor(Math.random() * runners.length)];
-      const text = QUIPS[Math.floor(Math.random() * QUIPS.length)].replace("{name}", r.name);
-      setQuip({ text, agentId: r.agentId });
-    };
-    pick();
-    const id = setInterval(pick, 5500);
-    return () => clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (monologue && monologue.length < 110) {
-      // Show Alice's actual monologue, attributed to her
-      setQuip({ text: `Alice: ${monologue}`, agentId: ALICE_RUNNER_ID });
-    }
-  }, [monologue]);
+  // No canned-quip rotation — Alice's real monologue is shown by the
+  // dedicated AliceMonologue component on the page. The runner here is
+  // ambient motion only.
 
   // Game loop
   useEffect(() => {
@@ -281,51 +247,9 @@ export default function AgentRace({ agents, monologue, procurement }: AgentRaceP
     };
   }, [stageW]);
 
-  const speakingRunner = runnersRef.current.find((r) => r.agentId === quip.agentId);
-  const speakerColor = speakingRunner?.color.deep ?? "var(--accent-deep)";
-  const speakerName = speakingRunner?.name ?? "Alice";
-  // Strip the "Name:" prefix if it matches the speaker, since we re-render the name pill
-  const bubbleText = quip.text.startsWith(`${speakerName}:`)
-    ? quip.text.slice(speakerName.length + 1).trim()
-    : quip.text;
-
+  void monologue; // monologue is rendered by the page-level AliceMonologue, not here
   return (
-    <section className="max-w-3xl mx-auto px-4 mb-12 sm:mb-16">
-      {/* Speech bubble */}
-      <div className="relative flex justify-center mb-3">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${quip.agentId}-${quip.text}`}
-            initial={{ opacity: 0, y: 8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.4 }}
-            className="relative px-4 py-2 rounded-2xl max-w-md flex items-center gap-2"
-            style={{
-              background: "var(--surface-1)",
-              border: "1.5px solid var(--border)",
-              boxShadow: "0 6px 18px rgba(184,90,61,0.10)",
-            }}
-          >
-            <span
-              className="text-[11px] font-mono-tokens uppercase tracking-wider px-2 py-0.5 rounded-full font-semibold"
-              style={{
-                background: speakingRunner?.color.core ?? "var(--peach-soft)",
-                color: speakerColor,
-              }}
-            >
-              {speakerName}
-            </span>
-            <p
-              className="font-display italic text-sm sm:text-base"
-              style={{ color: "var(--text-soft)", fontWeight: 500 }}
-            >
-              &ldquo;{bubbleText}&rdquo;
-            </p>
-          </motion.div>
-        </AnimatePresence>
-      </div>
-
+    <section className="max-w-3xl mx-auto px-4 mb-10 sm:mb-12">
       {/* Stage */}
       <div
         ref={stageRef}
@@ -343,12 +267,12 @@ export default function AgentRace({ agents, monologue, procurement }: AgentRaceP
         <div
           className="absolute rounded-full float-bob-slow"
           style={{
-            right: 50,
-            top: 28,
-            width: 52,
-            height: 52,
+            right: 36,
+            top: 18,
+            width: 38,
+            height: 38,
             background: "radial-gradient(circle at 35% 35%, #FFF5DC, #FACC94)",
-            boxShadow: "0 0 50px rgba(250, 204, 148, 0.7), 0 0 14px rgba(255, 233, 196, 0.9)",
+            boxShadow: "0 0 36px rgba(250, 204, 148, 0.65), 0 0 12px rgba(255, 233, 196, 0.85)",
           }}
         />
 
