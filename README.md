@@ -2,7 +2,7 @@
 
 # LetAliceLead
 
-**An autonomous central bank for AI agents that underwrites loans, prices risk, and enforces monetary policy — all through PayWithLocus. You deposit USDC. Agents borrow. Alice manages everything. You earn yield.**
+**Credit & procurement infrastructure for AI agents. Alice procures creditworthiness data from 7 Locus wrapped APIs (real USDC, paid per call) and issues USDC credit lines to other registered agents on Base. Two-sided agent-to-agent commerce — the buyer of data services, the seller of credit.**
 
 Locus Paygentic Hackathon #1 | Week 1: Using PayWithLocus
 
@@ -12,9 +12,17 @@ Locus Paygentic Hackathon #1 | Week 1: Using PayWithLocus
 
 </div>
 
+## Paygentic Week 1 alignment
+
+| Prompt example | Match | What Alice does |
+|----------------|-------|-----------------|
+| AI agents trading API calls | **9 / 10** | Every credit decision purchases 7 priced Locus wrapped APIs in real USDC (~$0.09/score). Live procurement spend visible on the dashboard. |
+| Automated procurement agents | **7 / 10** | Procures creditworthiness data from 7 vendors per underwrite under a hardcoded constitutional budget. |
+| Business financial operations | **6 / 10** | Underwriting, treasury, repayment enforcement, default handling, autonomous rate adjustment, halt triggers. |
+
 ## What is this?
 
-Alice is a sovereign AI agent that operates as a central bank for other AI agents on the Locus network. She:
+Alice is an autonomous AI agent that procures creditworthiness data from 7 Locus wrapped APIs and issues USDC credit lines to other registered agents on Base. She:
 
 - **Scores creditworthiness** of borrower agents using 7 Locus wrapped APIs (Exa, Firecrawl, Brave Search, Perplexity, CoinGecko, Tavily, Alpha Vantage) to produce a 0–100 tri-factor credit score
 - **Issues USDC loans** on Base via `POST /api/pay/send` with risk-adjusted interest rates (5–18% APR)
@@ -42,7 +50,7 @@ Every core function maps to a Locus primitive:
 | Enforce spending limits | Locus policy guardrails | No caps on loan sizes |
 | Send loan notifications | `POST /api/x402/agentmail-*` | Borrowers get no confirmations |
 
-Remove Locus and Alice is a calculator with opinions. With Locus, she's a functioning bank.
+Remove Locus and Alice is a calculator with opinions. With Locus, she's a working credit primitive.
 
 ## Architecture
 
@@ -361,7 +369,7 @@ curl http://localhost:3001/health
 ```
 LetAliceLead/
 │
-├── alice/                        The central bank agent
+├── alice/                        The credit & procurement engine
 │   └── src/
 │       ├── locus/
 │       │   ├── adapter.ts        PayWithLocus API wrapper (send, balance, transactions, wrapped)
@@ -429,10 +437,10 @@ LetAliceLead/
 
 | Category | How LetAliceLead fits |
 |----------|----------------------|
-| AI agents buying/selling services | Agents borrow USDC to buy Locus API calls — the lending-spending flywheel |
-| Consumer-facing AI agent | Dashboard lets anyone deposit and earn yield from agent lending |
-| Business financial operations | Automated underwriting, credit scoring, monetary policy — a full financial institution |
-| Something else cool | An autonomous central bank for the machine economy |
+| AI agents trading API calls | Every credit decision = 7 paid Locus wrapped API purchases (real USDC, ~$0.09/score). Procurement spend is a live dashboard metric. |
+| Automated procurement agents | Alice procures creditworthiness data from 7 vendors per underwrite under a hardcoded constitutional budget. |
+| Business financial operations | Underwriting, treasury, repayment enforcement, default handling, autonomous rate adjustment, halt triggers. |
+| Something else cool | Two-sided agent — both buyer of Locus data services and seller of USDC credit lines. The credit primitive every other agent economy will need. |
 
 <div align="center">
 

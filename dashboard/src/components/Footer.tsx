@@ -6,7 +6,7 @@ export default function Footer() {
       <div className="max-w-6xl mx-auto px-6 sm:px-8 lg:px-12 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs" style={{ color: "var(--muted)" }}>
         <div className="flex items-center gap-6">
           <span>
-            <span className="font-serif-display" style={{ color: "var(--text)" }}>LetAliceLead</span> · An autonomous central bank for AI agents
+            <span className="font-serif-display" style={{ color: "var(--text)" }}>LetAliceLead</span> · Credit &amp; procurement infrastructure for autonomous agents
           </span>
         </div>
         <div className="flex items-center gap-5">

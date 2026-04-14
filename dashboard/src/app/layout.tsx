@@ -21,8 +21,8 @@ const jetBrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "LetAliceLead — Agent Central Bank",
-  description: "An autonomous central bank for AI agents. Underwrites loans, prices risk, enforces monetary policy. Powered by PayWithLocus.",
+  title: "LetAliceLead — Agent Credit & Procurement",
+  description: "Credit & procurement infrastructure for AI agents. Alice procures creditworthiness data from 7 Locus wrapped APIs and issues USDC credit lines on Base. Powered by PayWithLocus.",
 };
 
 export default function RootLayout({

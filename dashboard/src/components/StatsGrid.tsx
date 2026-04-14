@@ -9,9 +9,11 @@ interface StatsGridProps {
   interestEarned: number;
   weightedAPR: number;
   avgScore: number;
+  procurementSpend?: number;
+  procurementCalls?: number;
 }
 
-function Card({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Card({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
   return (
     <div
       className="p-5 rounded-xl border bg-white"
@@ -20,7 +22,7 @@ function Card({ label, value, hint }: { label: string; value: string; hint?: str
       <p className="text-xs uppercase tracking-widest mb-3" style={{ color: "var(--muted)" }}>
         {label}
       </p>
-      <p className="font-mono-tokens text-2xl tabular-nums" style={{ color: "var(--text)" }}>
+      <p className="font-mono-tokens text-2xl tabular-nums" style={{ color: accent || "var(--text)" }}>
         {value}
       </p>
       {hint && (
@@ -39,15 +41,23 @@ export default function StatsGrid({
   interestEarned,
   weightedAPR,
   avgScore,
+  procurementSpend,
+  procurementCalls,
 }: StatsGridProps) {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <Card label="Total reserves" value={formatUSD(reserves)} hint="USDC held by Alice" />
       <Card label="Deployed" value={formatUSD(deployed)} hint="Outstanding loans" />
       <Card label="Available" value={formatUSD(available)} hint="Capital for new loans" />
       <Card label="Interest earned" value={formatUSD(interestEarned)} hint="Yield to depositors" />
       <Card label="Weighted APR" value={`${weightedAPR.toFixed(1)}%`} hint="Across active loans" />
       <Card label="Avg credit score" value={`${avgScore} / 100`} hint="Of active borrowers" />
+      <Card
+        label="Procurement spend"
+        value={formatUSD(procurementSpend ?? 0)}
+        hint={`${procurementCalls ?? 0} agent-to-agent API calls`}
+        accent="var(--accent)"
+      />
     </div>
   );
 }

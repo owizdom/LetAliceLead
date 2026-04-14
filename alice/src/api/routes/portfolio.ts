@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { getPortfolio, getRiskMetrics } from '../../core/treasury';
 import { getCycleCount } from '../../core/riskMonitor';
-import { getAuditLog } from '../../locus/audit';
+import { getAuditLog, computeProcurement, ProcurementSummary } from '../../locus/audit';
+import { getCatalog } from '../../locus/pricing';
 import { serializeBigInts } from '../../utils/crypto';
 import { PortfolioDashboard } from '../../types';
 import { getBalance } from '../../locus/adapter';
@@ -14,6 +15,7 @@ router.get('/', async (_req: Request, res: Response) => {
   try {
     const portfolio = getPortfolio();
     const metrics = getRiskMetrics();
+    const procurement: ProcurementSummary = computeProcurement();
 
     let bankWallet = 'unknown';
     try {
@@ -23,11 +25,13 @@ router.get('/', async (_req: Request, res: Response) => {
       // Locus may not be configured
     }
 
-    const dashboard: PortfolioDashboard = {
+    const dashboard: PortfolioDashboard & { procurement: ProcurementSummary; vendorCatalog: ReturnType<typeof getCatalog> } = {
       portfolio,
       metrics,
       bankWallet,
       uptime: Date.now() - startTime,
+      procurement,
+      vendorCatalog: getCatalog(),
     };
 
     res.json(serializeBigInts(dashboard));

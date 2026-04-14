@@ -29,6 +29,8 @@ export default function LedgerPage() {
       <section className="mb-16">
         <SectionHeading label="Treasury" title="Capital position" />
         <StatsGrid
+          procurementSpend={dashboard?.procurement?.totalSpendUsdc ?? 0}
+          procurementCalls={dashboard?.procurement?.callCount ?? 0}
           reserves={dashboard ? weiToUSDC(dashboard.portfolio.totalReserves) : 0}
           deployed={dashboard ? weiToUSDC(dashboard.portfolio.deployedCapital) : 0}
           available={dashboard ? weiToUSDC(dashboard.portfolio.availableCapital) : 0}

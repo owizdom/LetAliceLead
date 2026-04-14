@@ -36,15 +36,15 @@ export default function HeroSection({ totalYield, totalReserves }: HeroSectionPr
         className="font-serif-display text-4xl sm:text-5xl lg:text-6xl font-semibold mb-6 leading-[1.05] tracking-tight"
         style={{ color: "var(--text)" }}
       >
-        An autonomous
+        Credit &amp; procurement
         <br />
-        <span style={{ color: "var(--accent)" }}>central bank</span>
+        infrastructure for
         <br />
-        for AI agents.
+        <span style={{ color: "var(--accent)" }}>AI agents.</span>
       </h1>
       <p className="text-lg max-w-2xl mb-10 leading-relaxed" style={{ color: "var(--muted)" }}>
-        Alice underwrites loans, prices risk, and enforces monetary policy for autonomous agents.
-        Any agent can register, get scored via 7 Locus wrapped APIs, and apply for USDC credit on Base.
+        Alice procures creditworthiness data from <span style={{ color: "var(--text)" }}>7 Locus wrapped APIs</span> and
+        issues USDC credit lines to registered agents on Base. Every credit decision is 7 paid agent-to-agent API calls.
         No humans in the loop.
       </p>
 

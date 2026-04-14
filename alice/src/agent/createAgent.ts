@@ -16,7 +16,7 @@ export async function createAgent(config: AgentConfig) {
   console.log(`
   ╔══════════════════════════════════════════════════╗
   ║            LetAliceLead v1.0.0                   ║
-  ║   Autonomous Central Bank for AI Agents          ║
+  ║   Credit & Procurement Engine for AI Agents      ║
   ║                                                  ║
   ║   Powered by PayWithLocus                        ║
   ║   USDC on Base │ Wrapped APIs │ Policy Engine    ║

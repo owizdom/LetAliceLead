@@ -1,7 +1,7 @@
 {
   "name": "letalice-lead-backend",
   "version": "1.0.0",
-  "description": "LetAliceLead — The first autonomous central bank for AI agents, powered by PayWithLocus",
+  "description": "LetAliceLead — Credit & procurement infrastructure for AI agents, powered by PayWithLocus",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -13,7 +13,8 @@
     "locus",
     "paywithlocus",
     "ai-agents",
-    "central-bank",
+    "agent-credit",
+    "procurement",
     "usdc",
     "credit-scoring",
     "lending"

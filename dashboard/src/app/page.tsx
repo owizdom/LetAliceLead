@@ -39,6 +39,8 @@ export default function OverviewPage() {
           interestEarned={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
           weightedAPR={dashboard?.metrics.weightedAverageAPR ?? 0}
           avgScore={dashboard?.metrics.averageCreditScore ?? 0}
+          procurementSpend={dashboard?.procurement?.totalSpendUsdc ?? 0}
+          procurementCalls={dashboard?.procurement?.callCount ?? 0}
         />
       </section>
 

@@ -50,6 +50,14 @@ export interface Dashboard {
   metrics: RiskMetrics;
   bankWallet: string;
   uptime: number;
+  procurement?: ProcurementSummary;
+  vendorCatalog?: Array<{ provider: string; usdcPerCall: number }>;
+}
+
+export interface ProcurementSummary {
+  totalSpendUsdc: number;
+  callCount: number;
+  byProvider: Record<string, { calls: number; spendUsdc: number; usdcPerCall: number }>;
 }
 
 export interface AuditEntry {

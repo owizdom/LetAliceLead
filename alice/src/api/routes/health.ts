@@ -12,7 +12,7 @@ router.get('/', (_req: Request, res: Response) => {
     status: 'ok',
     agent: 'LetAliceLead',
     version: '1.0.0',
-    description: 'The first autonomous central bank for AI agents',
+    description: 'Credit & procurement infrastructure for AI agents',
     uptime: Date.now() - startTime,
     riskCycles: getCycleCount(),
     lendingActive: !metrics.lendingHalted,

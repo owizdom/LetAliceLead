@@ -23,7 +23,7 @@ export function createServer(): express.Application {
   app.get('/', (_req, res) => {
     res.json({
       name: 'LetAliceLead',
-      description: 'Autonomous central bank for AI agents — powered by PayWithLocus',
+      description: 'Credit & procurement infrastructure for AI agents — powered by PayWithLocus',
       version: '1.0.0',
       endpoints: {
         health: 'GET /health',
