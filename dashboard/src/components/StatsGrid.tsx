@@ -11,6 +11,8 @@ interface StatsGridProps {
   avgScore: number;
   procurementSpend?: number;
   procurementCalls?: number;
+  crossChainCollateralUsd?: number;
+  averageLtvPct?: number;
 }
 
 function Card({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: string }) {
@@ -43,6 +45,8 @@ export default function StatsGrid({
   avgScore,
   procurementSpend,
   procurementCalls,
+  crossChainCollateralUsd,
+  averageLtvPct,
 }: StatsGridProps) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -57,6 +61,12 @@ export default function StatsGrid({
         value={formatUSD(procurementSpend ?? 0)}
         hint={`${procurementCalls ?? 0} agent-to-agent API calls`}
         accent="var(--accent)"
+      />
+      <Card
+        label="Cross-chain collateral"
+        value={formatUSD(crossChainCollateralUsd ?? 0)}
+        hint={`Avg LTV ${(averageLtvPct ?? 0).toFixed(0)}%`}
+        accent="var(--sky-deep)"
       />
     </div>
   );

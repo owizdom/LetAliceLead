@@ -7,6 +7,7 @@ import StatsGrid from "@/components/StatsGrid";
 import LoansTable from "@/components/LoansTable";
 import ActivityFeed from "@/components/ActivityFeed";
 import FundBanner from "@/components/FundBanner";
+import PriceTicker from "@/components/PriceTicker";
 
 export default function LedgerPage() {
   const { dashboard, auditEntries } = useAlice();
@@ -22,6 +23,8 @@ export default function LedgerPage() {
   return (
     <Shell>
       <PageTitle eyebrow="Ledger" title="Loan book" />
+
+      <PriceTicker ticker={dashboard?.priceTicker} />
 
       <FundBanner
         bankWallet={dashboard?.bankWallet}
@@ -39,6 +42,8 @@ export default function LedgerPage() {
           interestEarned={dashboard ? weiToUSDC(dashboard.portfolio.totalInterestEarned) : 0}
           weightedAPR={dashboard?.metrics.weightedAverageAPR ?? 0}
           avgScore={dashboard?.metrics.averageCreditScore ?? 0}
+          crossChainCollateralUsd={dashboard?.crossChainCollateralUsd ?? 0}
+          averageLtvPct={dashboard?.averageLtvPct ?? 0}
         />
       </section>
 

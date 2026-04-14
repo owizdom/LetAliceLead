@@ -1,9 +1,27 @@
 "use client";
 
-import { Loan, weiToUSDC, formatUSD } from "@/lib/api";
+import { Loan, CollateralPledge, weiToUSDC, formatUSD } from "@/lib/api";
 
 interface LoansTableProps {
   loans: Loan[];
+}
+
+const CHAIN_ICON: Record<string, string> = {
+  starknet: "▲",
+  ethereum: "◆",
+  base: "■",
+  other: "●",
+};
+
+function healthStyle(h: CollateralPledge['health']): { bg: string; fg: string; label: string } {
+  switch (h) {
+    case 'healthy':
+      return { bg: 'color-mix(in srgb, var(--mint) 35%, var(--surface-1))', fg: 'var(--mint-deep)', label: 'healthy' };
+    case 'warn':
+      return { bg: 'var(--peach-soft)', fg: 'var(--accent-deep)', label: 'warn' };
+    case 'margin_call':
+      return { bg: 'color-mix(in srgb, var(--rose) 45%, var(--surface-1))', fg: 'var(--rose-deep)', label: 'margin call' };
+  }
 }
 
 function statusStyle(status: string): { bg: string; fg: string; label: string } {
@@ -62,6 +80,12 @@ export default function LoansTable({ loans }: LoansTableProps) {
               <th className="text-right px-5 py-3 text-xs font-medium uppercase tracking-widest" style={{ color: "var(--muted)" }}>
                 Score
               </th>
+              <th className="text-left px-5 py-3 text-xs font-medium uppercase tracking-widest" style={{ color: "var(--muted)" }}>
+                Collateral
+              </th>
+              <th className="text-center px-5 py-3 text-xs font-medium uppercase tracking-widest" style={{ color: "var(--muted)" }}>
+                LTV
+              </th>
               <th className="text-center px-5 py-3 text-xs font-medium uppercase tracking-widest" style={{ color: "var(--muted)" }}>
                 Status
               </th>
@@ -100,6 +124,51 @@ export default function LoansTable({ loans }: LoansTableProps) {
                   </td>
                   <td className="px-5 py-4 text-right font-mono-tokens tabular-nums" style={{ color: "var(--text)" }}>
                     {loan.terms.creditScoreAtOrigination}
+                  </td>
+                  <td className="px-5 py-4">
+                    {loan.collateral ? (
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold"
+                          style={{
+                            background: 'var(--surface-2)',
+                            color: 'var(--text)',
+                            border: '1px solid var(--border)',
+                          }}
+                          title={loan.collateral.chain}
+                        >
+                          {CHAIN_ICON[loan.collateral.chain] || '●'}
+                        </span>
+                        <div>
+                          <div className="font-mono-tokens text-xs tabular-nums leading-tight" style={{ color: 'var(--text)' }}>
+                            {loan.collateral.amount.toFixed(2)} {loan.collateral.asset}
+                          </div>
+                          <div className="font-mono-tokens text-[10px] tabular-nums leading-tight" style={{ color: 'var(--muted)' }}>
+                            ≈ ${loan.collateral.pricedUsdc.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>—</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-4 text-center">
+                    {loan.collateral ? (
+                      (() => {
+                        const h = healthStyle(loan.collateral.health);
+                        return (
+                          <span
+                            className="inline-block text-xs font-medium px-2 py-0.5 rounded"
+                            style={{ background: h.bg, color: h.fg, border: `1px solid ${h.fg}33` }}
+                            title={`${loan.collateral.ltvPct.toFixed(1)}% LTV · ${h.label}`}
+                          >
+                            {loan.collateral.ltvPct.toFixed(0)}%
+                          </span>
+                        );
+                      })()
+                    ) : (
+                      <span style={{ color: 'var(--muted)' }}>—</span>
+                    )}
                   </td>
                   <td className="px-5 py-4 text-center">
                     <span

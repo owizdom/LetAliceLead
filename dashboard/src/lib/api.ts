@@ -23,6 +23,17 @@ export interface RiskMetrics {
   computedAt: number;
 }
 
+export interface CollateralPledge {
+  chain: 'starknet' | 'ethereum' | 'base' | 'other' | string;
+  asset: 'STRK' | 'ETH' | 'USDC' | string;
+  wallet: string;
+  amount: number;
+  pricedUsdc: number;
+  ltvPct: number;
+  health: 'healthy' | 'warn' | 'margin_call';
+  lastPricedAt: number;
+}
+
 export interface Loan {
   id: string;
   borrowerAgentId: number;
@@ -43,6 +54,18 @@ export interface Loan {
   repaymentHistory: { amount: string; timestamp: number; txHash: string }[];
   riskScore: number;
   lastRiskCheck: number;
+  collateral?: CollateralPledge;
+}
+
+export interface PriceTicker {
+  strkUsd: number;
+  strkChange24h: number | null;
+  ethUsd: number;
+  ethChange24h: number | null;
+  sovraTopBidUsdc: number | null;
+  sovraBidCount: number;
+  sovraNextSettleAt: number | null;
+  pricesAt: number;
 }
 
 export interface Dashboard {
@@ -58,6 +81,11 @@ export interface Dashboard {
     agentId?: number;
     timestamp: number;
   } | null;
+  crossChainCollateralUsd?: number;
+  averageLtvPct?: number;
+  marginCallCount?: number;
+  priceTicker?: PriceTicker;
+  pricesByAsset?: Record<string, { usd: number; usd24hChange?: number; fetchedAt: number }>;
 }
 
 export interface ProcurementSummary {

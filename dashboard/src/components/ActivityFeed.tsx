@@ -10,6 +10,21 @@ interface ActivityFeedProps {
 const MAX_VISIBLE = 7;
 
 function getAccentColor(action: string): string {
+  if (action === "alice.action.margin_call" || action === "collateral.ltv.changed") {
+    return "var(--rose-deep, var(--danger))";
+  }
+  if (action === "sovra.bid.placed") {
+    return "var(--sky-deep, var(--accent))";
+  }
+  if (action === "sovra.bid.intent") {
+    return "var(--accent)";
+  }
+  if (action === "alice.action.promote_via_sovra") {
+    return "var(--accent-deep, var(--accent))";
+  }
+  if (action === "collateral.pledged" || action === "collateral.priced") {
+    return "var(--sky-deep, var(--accent))";
+  }
   if (action.includes("rejected") || action.includes("defaulted") || action.includes("halted")) {
     return "var(--danger)";
   }
