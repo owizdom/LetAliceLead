@@ -94,7 +94,14 @@ router.get('/:loanId', (req: Request, res: Response) => {
   res.json(serializeBigInts(loan));
 });
 
-// POST /api/loans/:loanId/repay — submit a repayment
+// POST /api/loans/:loanId/repay — submit a repayment.
+// Requires a real Base-mainnet tx hash so every repayment row in
+// loan.repaymentHistory points at on-chain truth. The internal auto-sweep
+// path (riskMonitor.attemptAutoSweep) already passes a viem-issued hash; the
+// previous off-chain `repay_${Date.now()}` fallback fabricated cosmetic ids
+// that BaseScan would reject and was indistinguishable from real entries on
+// the ledger view.
+const TX_HASH_RE = /^0x[a-fA-F0-9]{64}$/;
 router.post('/:loanId/repay', async (req: Request, res: Response) => {
   try {
     const { amount, txHash } = req.body;
@@ -109,11 +116,15 @@ router.post('/:loanId/repay', async (req: Request, res: Response) => {
       return;
     }
 
-    const parsedAmount = parseUSDC(amount);
-    // Use provided txHash or generate a reference
-    const hash = txHash || `repay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    if (typeof txHash !== 'string' || !TX_HASH_RE.test(txHash)) {
+      res.status(400).json({
+        error: 'txHash is required and must be a 0x-prefixed 32-byte Base mainnet transaction hash',
+      });
+      return;
+    }
 
-    const loan = await processRepayment(req.params.loanId, parsedAmount, hash);
+    const parsedAmount = parseUSDC(amount);
+    const loan = await processRepayment(req.params.loanId, parsedAmount, txHash);
     res.json({
       success: true,
       loan: serializeBigInts(loan),
