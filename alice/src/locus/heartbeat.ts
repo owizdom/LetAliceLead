@@ -34,6 +34,8 @@ interface FeedbackBody {
 const activitySinceLastHeartbeat = {
   paySend: 0,
   payBalance: 0,
+  subwalletCreate: 0,
+  subwalletSend: 0,
   wrappedCalls: {} as Record<string, number>,
   errors: [] as Array<{ endpoint: string; message: string }>,
 };
@@ -83,9 +85,19 @@ async function postFeedback(body: FeedbackBody): Promise<void> {
 
 // ─── Public API ──────────────────────────────────────────────
 
-export function recordActivity(kind: 'pay.send' | 'pay.balance' | 'wrapped', provider?: string): void {
+export function recordActivity(
+  kind:
+    | 'pay.send'
+    | 'pay.balance'
+    | 'pay.subwallets.create'
+    | 'pay.send.subwallet'
+    | 'wrapped',
+  provider?: string
+): void {
   if (kind === 'pay.send') activitySinceLastHeartbeat.paySend += 1;
   else if (kind === 'pay.balance') activitySinceLastHeartbeat.payBalance += 1;
+  else if (kind === 'pay.subwallets.create') activitySinceLastHeartbeat.subwalletCreate += 1;
+  else if (kind === 'pay.send.subwallet') activitySinceLastHeartbeat.subwalletSend += 1;
   else if (kind === 'wrapped' && provider) {
     activitySinceLastHeartbeat.wrappedCalls[provider] =
       (activitySinceLastHeartbeat.wrappedCalls[provider] || 0) + 1;

@@ -11,12 +11,15 @@ export interface RegisteredAgent {
   tagline: string;
   description: string;
   wallet: string;
-  // Alice-custodied Base wallet issued at registration. NOT a PayWithLocus
-  // subwallet — Alice generates the keypair locally (see wallets/manager.ts)
-  // and holds the private key in her encrypted keystore. Field name kept as
-  // `managedWallet` for API/dashboard compatibility.
-  // External self-custodial agents registered before this system existed may not have one.
+  // Alice-managed Base wallet issued at registration. When
+  // LOCUS_SUBWALLETS_ENABLED=true this is a real Locus subwallet (scoped,
+  // policy-capped); otherwise it is an Alice-custodied viem keypair in her
+  // encrypted keystore. See wallets/manager.ts for the full two-path model.
   managedWallet?: string;
+  /** Locus subwallet id when the agent was issued via the subwallet path. */
+  subwalletId?: string;
+  /** Locus-enforced USDC spending cap for the subwallet, when applicable. */
+  spendingCapUsdc?: number;
   chain: 'base' | 'starknet' | 'ethereum' | 'other';
   status: AgentStatus;
   github?: string;
@@ -103,7 +106,7 @@ export function getAgent(agentId: number): RegisteredAgent | undefined {
   return registry.get(agentId);
 }
 
-export function registerAgent(input: {
+export async function registerAgent(input: {
   name: string;
   tagline: string;
   description: string;
@@ -111,19 +114,31 @@ export function registerAgent(input: {
   chain?: RegisteredAgent['chain'];
   github?: string;
   website?: string;
-}): RegisteredAgent {
+  /**
+   * Initial Locus-enforced spending cap in USDC. Only applied when Alice is
+   * running with LOCUS_SUBWALLETS_ENABLED=true. If omitted, the subwallet is
+   * created without a cap and Alice's constitutional per-loan ceiling is the
+   * effective limit at disbursement time.
+   */
+  initialCreditCeilingUsdc?: number;
+}): Promise<RegisteredAgent> {
   const agentId = nextAgentId++;
 
-  // Issue an Alice-custodied Base wallet for this agent. The keypair is
-  // generated locally by viem and persisted encrypted in Alice's keystore;
-  // it is NOT a Locus-issued subwallet. Lazy require so unit tests that
-  // don't touch wallets don't need viem configured.
+  // Issue the agent's Base wallet via the two-path model in wallets/manager.ts.
+  // When LOCUS_SUBWALLETS_ENABLED=true we get back a real Locus subwallet with
+  // policy-scoped caps; otherwise we fall back to the Alice-custodied keystore.
   let managedWallet: string | undefined;
+  let subwalletId: string | undefined;
+  let spendingCapUsdc: number | undefined;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { issueWallet } = require('../wallets/manager');
-    const issued = issueWallet(agentId);
+    const { issueWalletAsync } = await import('../wallets/manager');
+    const issued = await issueWalletAsync(agentId, {
+      label: input.name,
+      spendingCapUsdc: input.initialCreditCeilingUsdc,
+    });
     managedWallet = issued.address;
+    subwalletId = issued.subwalletId;
+    spendingCapUsdc = issued.spendingCapUsdc;
   } catch {
     // Wallets module failed to initialize — keep the agent registered without a card.
     // Will surface in audit log via logger.
@@ -136,6 +151,8 @@ export function registerAgent(input: {
     description: input.description,
     wallet: input.wallet,
     managedWallet,
+    subwalletId,
+    spendingCapUsdc,
     chain: input.chain || 'base',
     status: 'registered',
     github: input.github,

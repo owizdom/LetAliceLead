@@ -510,9 +510,18 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
   const { getAgent } = require('../registry/agents') as typeof import('../registry/agents');
   const registered = getAgent(app.agentId);
   const disbursementAddress = registered?.managedWallet || app.agentWallet;
-  const disbursementMode: 'managed' | 'external' = registered?.managedWallet
+  // Three-way mode: 'subwallet' when the agent has a Locus-scoped subwallet
+  // issued through /pay/subwallets (policy-enforced credit ceiling), 'managed'
+  // for the legacy Alice-custodied viem keystore path, or 'external' when
+  // disbursing directly to the agent's self-custodial address.
+  const disbursementMode: 'subwallet' | 'managed' | 'external' = registered?.subwalletId
+    ? 'subwallet'
+    : registered?.managedWallet
     ? 'managed'
     : 'external';
+  const subwalletSuffix = registered?.subwalletId
+    ? ` [sub:${registered.subwalletId.slice(0, 8)}]`
+    : '';
 
   // Real on-chain disbursement only — no notional fallback. Every loan
   // either lands on Base with a verifiable tx hash or gets rejected.
@@ -523,7 +532,7 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
     txId = await transferUSDC(
       disbursementAddress,
       app.requestedAmount,
-      `LetAliceLead Loan (${disbursementMode}): ${formatUSDC(app.requestedAmount)} @ ${effectiveAPR}% APR for ${termDays}d to agent #${app.agentId}`
+      `LetAliceLead Loan (${disbursementMode}): ${formatUSDC(app.requestedAmount)} @ ${effectiveAPR}% APR for ${termDays}d to agent #${app.agentId}${subwalletSuffix}`
     );
     await logger.info('loan.funding.onchain', {
       agentId: app.agentId,
@@ -531,6 +540,7 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
       mode: 'real',
       disbursedTo: disbursementAddress,
       disbursementMode,
+      subwalletId: registered?.subwalletId ?? null,
     });
   } catch (err) {
     const errMsg = String(err);

@@ -26,7 +26,7 @@ router.get('/:agentId', (req: Request, res: Response) => {
 // POST /api/registry/register — anyone can register an agent
 router.post('/register', async (req: Request, res: Response) => {
   try {
-    const { name, tagline, description, wallet, chain, github, website } = req.body;
+    const { name, tagline, description, wallet, chain, github, website, initialCreditCeilingUsdc } = req.body;
     if (!name || !wallet) {
       res.status(400).json({ error: 'Missing required fields: name, wallet' });
       return;
@@ -35,7 +35,7 @@ router.post('/register', async (req: Request, res: Response) => {
       res.status(400).json({ error: 'Invalid wallet address' });
       return;
     }
-    const agent = registerAgent({
+    const agent = await registerAgent({
       name: String(name).slice(0, 80),
       tagline: String(tagline || '').slice(0, 200),
       description: String(description || '').slice(0, 1000),
@@ -43,12 +43,17 @@ router.post('/register', async (req: Request, res: Response) => {
       chain,
       github,
       website,
+      initialCreditCeilingUsdc:
+        typeof initialCreditCeilingUsdc === 'number' && initialCreditCeilingUsdc > 0
+          ? initialCreditCeilingUsdc
+          : undefined,
     });
     await logger.info('registry.agent.registered', {
       agentId: agent.agentId,
       name: agent.name,
       wallet: agent.wallet,
       managedWallet: agent.managedWallet,
+      subwalletId: agent.subwalletId,
     });
     res.status(201).json(serializeBigInts(agent));
   } catch (err) {

@@ -173,6 +173,126 @@ export async function wrappedCall<T = unknown>(
   return result.data ?? (result as unknown as T);
 }
 
+// ─── Subwallets ───────────────────────────────────────────────
+//
+// Locus exposes `/pay/subwallets` for creating per-recipient scoped
+// sub-accounts under a parent wallet. Alice uses these as per-agent
+// "credit ceilings" — each registered borrower gets a dedicated
+// subwallet with its own spending cap, making the Agent Credit Ceiling
+// concept enforced by Locus policy rather than Alice's local code.
+//
+// Gated behind LOCUS_SUBWALLETS_ENABLED=true because the API is still
+// beta — if the endpoint returns 404 we fall back to the Alice-custodied
+// local keypair path (wallets/manager.ts) and log the degradation,
+// rather than either failing agent registration or fabricating a
+// subwallet id.
+
+export interface LocusSubwallet {
+  id: string;
+  address: string;
+  label: string;
+  spending_cap_usdc?: number;
+  balance_usdc?: number;
+}
+
+export function subwalletsEnabled(): boolean {
+  return process.env.LOCUS_SUBWALLETS_ENABLED === 'true';
+}
+
+/**
+ * Create a new scoped subwallet under Alice's Locus account.
+ *
+ * Throws on any non-2xx — callers must decide whether to propagate or fall
+ * back (the typical flow falls back to a local keypair on 404 so that agent
+ * registration is never blocked by a missing Locus primitive).
+ */
+export async function createSubwallet(opts: {
+  label: string;
+  spendingCapUsdc?: number;
+}): Promise<LocusSubwallet> {
+  const res = await fetch(`${API_BASE}/pay/subwallets`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({
+      label: opts.label,
+      ...(opts.spendingCapUsdc !== undefined ? { spending_cap_usdc: opts.spendingCapUsdc } : {}),
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    const { recordError } = await import('./heartbeat');
+    recordError('/api/pay/subwallets', `${res.status} ${err.slice(0, 200)}`, {
+      status_code: res.status,
+      label: opts.label,
+    });
+    throw new Error(`Locus createSubwallet failed (${res.status}): ${err.slice(0, 200)}`);
+  }
+  const { recordActivity } = await import('./heartbeat');
+  recordActivity('pay.subwallets.create');
+  const body = (await res.json()) as { data?: LocusSubwallet } & LocusSubwallet;
+  return body.data || body;
+}
+
+export async function listSubwallets(): Promise<LocusSubwallet[]> {
+  const res = await fetch(`${API_BASE}/pay/subwallets`, { headers: headers() });
+  if (!res.ok) {
+    const err = await res.text();
+    const { recordError } = await import('./heartbeat');
+    recordError('/api/pay/subwallets', `${res.status} ${err.slice(0, 200)}`, {
+      status_code: res.status,
+    });
+    throw new Error(`Locus listSubwallets failed (${res.status}): ${err.slice(0, 200)}`);
+  }
+  const body = (await res.json()) as {
+    data?: LocusSubwallet[];
+    subwallets?: LocusSubwallet[];
+  };
+  return body.data || body.subwallets || [];
+}
+
+/**
+ * Send USDC from a specific subwallet. Falls back to the root wallet via
+ * sendPayment if the Locus API rejects the `from_subwallet_id` field (some
+ * beta deployments haven't exposed the field yet) — the send still happens,
+ * just not with subwallet-scoped enforcement. Every path returns a real
+ * transaction_id or throws.
+ */
+export async function sendFromSubwallet(
+  subwalletId: string,
+  params: { to_address: string; amount: number; memo: string }
+): Promise<LocusSendResult> {
+  const res = await fetch(`${API_BASE}/pay/send`, {
+    method: 'POST',
+    headers: headers(),
+    body: JSON.stringify({ ...params, from_subwallet_id: subwalletId }),
+  });
+  if (res.status === 400 || res.status === 422) {
+    // Beta API may reject `from_subwallet_id` as an unknown field. Surface
+    // once, then fall back so disbursement is not blocked.
+    const { recordError } = await import('./heartbeat');
+    const errText = await res.text();
+    recordError('/api/pay/send[subwallet]', `${res.status} ${errText.slice(0, 200)}`, {
+      status_code: res.status,
+      subwalletId,
+      fallback: 'root_wallet',
+    });
+    return sendPayment(params);
+  }
+  if (!res.ok) {
+    const err = await res.text();
+    const { recordError } = await import('./heartbeat');
+    recordError('/api/pay/send[subwallet]', `${res.status} ${err.slice(0, 200)}`, {
+      status_code: res.status,
+      subwalletId,
+    });
+    throw new Error(`Locus sendFromSubwallet failed (${res.status}): ${err.slice(0, 200)}`);
+  }
+  const { recordActivity } = await import('./heartbeat');
+  recordActivity('pay.send.subwallet');
+  const body = (await res.json()) as { data?: LocusSendResult } & LocusSendResult;
+  return body.data || body;
+}
+
 // ─── AgentMail ────────────────────────────────────────────────
 
 export async function createMailInbox(username: string): Promise<{ address: string }> {
