@@ -20,6 +20,21 @@ Live dashboard · Alice running on Railway · API at [alice-production-e32b.up.r
 
 Plus a **micro-USDC heartbeat tx every 5 minutes** keeping the on-chain record beating — a real BaseScan transfer, every five minutes, funded for years on the current treasury. All disbursements are surfaced live in the dashboard's `Verified on BaseScan` panel, pulled from Locus's transaction history (no in-memory state).
 
+Verify all three anchor loans from one shell, no BaseScan UI dependency:
+
+```bash
+for h in 0x8d3af51d58b3011490ebbc4a0dd231110c63e11fab484cce4795938cbc679d3b \
+         0x33e789fe819a4c497c1c7d429b37a93166c09ebe4aa3a963c624ad81c993b5b1 \
+         0x53490f8f27cc155616e6dea68278cb34055b523272b10e1b06dfdd24cad551ea; do
+  curl -s https://mainnet.base.org \
+    -H 'Content-Type: application/json' \
+    -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getTransactionByHash\",\"params\":[\"$h\"]}" \
+    | jq -r '.result | "\(.from) → \(.to) · block \(.blockNumber)"'
+done
+```
+
+Each line should print Alice's wallet sending to Bob's ERC-4337 EntryPoint on a real Base block number. No hash resolves → the loans aren't real. All three resolve → they are.
+
 <div align="center">
 
 [Live dashboard](https://letalicelead.vercel.app) · [PayWithLocus](https://paywithlocus.com)
@@ -35,13 +50,15 @@ Alice is an autonomous AI credit officer who lends real USDC on Base to other AI
 | See her own treasury balance | `GET /api/pay/balance` |
 | Disburse a USDC loan to a borrower | `POST /api/pay/send` |
 | Check if a borrower repaid | `GET /api/pay/transactions` |
+| Issue a scoped credit line per agent | `POST /api/pay/subwallets` |
+| Receive settlement callbacks (HMAC-verified) | inbound webhook → `/api/webhooks/locus` |
 | Score a borrower's web presence | `POST /api/wrapped/exa/search` |
 | Look at a borrower's on-chain history | `POST /api/wrapped/firecrawl/scrape` |
 | Search public mentions of a borrower | `POST /api/wrapped/brave/web-search` |
 | LLM-based reputation read | `POST /api/wrapped/perplexity/chat` |
 | Cross-chain price feeds (STRK, ETH) | `POST /api/wrapped/coingecko/simple-price` |
 | Macro market context | `POST /api/wrapped/alphavantage/global-quote` |
-| Verify she's still alive to the network | `POST /api/heartbeat` |
+| Verify she's still alive to the network | `POST /api/feedback` |
 
 She doesn't call any of these once and stop. Every 90 seconds Claude reads the full state of her book and picks one tool to invoke, which in turn calls Locus. Every 5 minutes she sends a real micro-USDC pulse on Base. Every credit score is a real ~$0.09 USDC procurement spend across 7 vendor APIs. The dashboard visualizes each call as it happens.
 
@@ -298,6 +315,9 @@ Alice runs on `http://localhost:3001`. Dashboard on `http://localhost:3000`.
 | `PORT` | No | `3001` | Express server port |
 | `CORS_ORIGIN` | No | `*` | Allowed CORS origins |
 | `RISK_CHECK_INTERVAL_MS` | No | `60000` | Risk monitor cycle interval (ms) |
+| `LOCUS_WEBHOOK_SECRET` | No* | — | Shared secret from the Locus dashboard. *Required* for `/api/webhooks/locus` to accept settlement callbacks; missing secret returns 503 rather than fail-open |
+| `LOCUS_WEBHOOK_SIG_HEADER` | No | `X-Locus-Signature` | Override if Locus emits a different HMAC header name |
+| `LOCUS_SUBWALLETS_ENABLED` | No | `false` | Flip to `true` once your Locus account has `/pay/subwallets` enabled. Newly-registered agents then get a real Locus subwallet instead of the local Alice-custodied keypair |
 
 ## API Reference
 
@@ -367,6 +387,43 @@ curl -X POST http://localhost:3001/api/registry/<agentId>/score
 curl http://localhost:3001/health
 # → {"status":"ok","agent":"LetAliceLead","lendingActive":true,"reserveRatio":"100.0%","poweredBy":"PayWithLocus"}
 ```
+
+### Agent-to-agent hire (x402)
+
+Alice exposes an inbound x402 endpoint so **other agents can pay her to
+underwrite and disburse a loan**. First call returns HTTP 402 +
+`X-Payment-Required` with USDC on Base at atomic units; the retry with a
+well-formed `X-Payment` header runs the full underwrite pipeline and — on
+approval — settles on-chain through Locus.
+
+```bash
+# Discover (no payment) — returns 402 + PAYMENT-REQUIRED
+curl -i https://alice-production-e32b.up.railway.app/api/alice/hire
+
+# Expected response:
+#   HTTP/1.1 402 Payment Required
+#   X-Payment-Required: eyJ4NDAyVmVyc2lvbiI6MSwiYWNjZXB0cyI6W3sic2NoZW1lIjoi...
+#   {
+#     "x402Version": 1,
+#     "accepts": [{
+#       "scheme": "exact",
+#       "network": "base",
+#       "maxAmountRequired": "10000",    // 0.01 USDC at 6 decimals
+#       "asset": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",  // USDC on Base
+#       "payTo": "0xddaf890724785a7df46de5b8e4d051a8064e3da4"   // Alice
+#     }]
+#   }
+
+# Settle: retry with X-Payment header → Alice underwrites + disburses on-chain
+curl -i -X POST https://alice-production-e32b.up.railway.app/api/alice/hire \
+  -H 'Content-Type: application/json' \
+  -H 'X-Payment: <base64 JSON: {"scheme":"exact","network":"base","payload":{"authorization":{"to":"0xddaf890724785a7df46de5b8e4d051a8064e3da4","from":"0xYOUR_AGENT_WALLET"}}}>' \
+  -d '{"agentId":2,"agentWallet":"0x4d8df94a00d8f267ceed9eacbde905928b0afcd8","amount":0.05,"purpose":"compute","termDays":1}'
+
+# Approved response includes a BaseScan-verifiable tx hash for the disbursement.
+```
+
+Compliant with the x402 discovery/settle/retry pattern. Atomic units in 6-decimal USDC, canonical Base USDC contract, Bearer-safe scheme/network pair.
 
 ## Project Structure
 
