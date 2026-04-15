@@ -9,6 +9,8 @@ import loanRoutes from './routes/loans';
 import portfolioRoutes from './routes/portfolio';
 import healthRoutes from './routes/health';
 import registryRoutes from './routes/registry';
+import x402HireRoutes from './routes/x402Hire';
+import locusWebhookRoutes from './routes/locusWebhook';
 
 export function createServer(): express.Application {
   const app = express();
@@ -40,6 +42,13 @@ export function createServer(): express.Application {
     );
   }
 
+  // IMPORTANT: mount the Locus webhook BEFORE `express.json()` because HMAC
+  // verification needs the raw request bytes. The route mounts its own
+  // `express.raw()` parser internally — swapping the order here would cause
+  // every signature compare to fail because `express.json()` has already
+  // consumed the stream.
+  app.use('/api/webhooks/locus', locusWebhookRoutes);
+
   app.use(express.json({ limit: '256kb' }));
   app.use(rateLimit);
 
@@ -47,6 +56,7 @@ export function createServer(): express.Application {
   app.use('/api/loans', loanRoutes);
   app.use('/api/portfolio', portfolioRoutes);
   app.use('/api/registry', registryRoutes);
+  app.use('/api/alice', x402HireRoutes);
   app.use('/health', healthRoutes);
 
   app.get('/', (_req, res) => {
@@ -64,6 +74,13 @@ export function createServer(): express.Application {
           get: 'GET /api/registry/:agentId',
           register: 'POST /api/registry/register',
           score: 'POST /api/registry/:agentId/score',
+        },
+        hireX402: {
+          discover: 'GET /api/alice/hire (returns 402 + PAYMENT-REQUIRED)',
+          settle: 'POST /api/alice/hire (with X-Payment header → runs underwrite + on-chain disbursement)',
+        },
+        webhooks: {
+          locus: 'POST /api/webhooks/locus (HMAC-SHA256 verified settlement callbacks from Locus)',
         },
       },
       poweredBy: ['PayWithLocus', 'USDC on Base', 'Locus Wrapped APIs'],
