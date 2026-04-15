@@ -122,8 +122,9 @@ async function runRiskCycle(): Promise<void> {
 }
 
 /**
- * Attempt to pull outstanding balance from an agent's managed wallet back to
- * Alice's treasury. Real on-chain USDC transfer via viem.
+ * Attempt to pull outstanding balance from an agent's Alice-custodied wallet
+ * back to Alice's treasury. Real on-chain USDC transfer via viem — the sweep
+ * works precisely because Alice holds the private key (see wallets/manager.ts).
  * Returns true if the sweep fully covered the outstanding balance.
  */
 async function attemptAutoSweep(

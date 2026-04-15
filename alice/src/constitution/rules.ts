@@ -19,13 +19,14 @@ export interface InterestTier {
   maxLoanPctOfReserves: number;
 }
 
+// These constants are the canonical implementation of soul/constitution.md.
+// Article II §1–2 fixes the minimum reserve ratio at 20%; Article VII §2 sets
+// the emergency halt threshold at 10%. Any change here without an Article VIII
+// amendment to the constitution document is a violation of the rules Alice
+// is supposed to enforce on herself.
 export const CONSTITUTION: ConstitutionalRules = {
-  // Demo-tuned: reserves are bootstrap-funded with promo USDC, so a tight
-  // 20% halt would freeze the loop after a couple of $0.01 origination
-  // ticks. 5% / 2% lets micro-loans keep flowing while still triggering
-  // halts on actual catastrophic drawdowns.
-  minReserveRatioPct: 5,
-  emergencyReserveRatioPct: 2,
+  minReserveRatioPct: 20,
+  emergencyReserveRatioPct: 10,
   maxSingleLoanPct: 10,
   maxConcentrationPct: 25,
   minCreditScore: 40,

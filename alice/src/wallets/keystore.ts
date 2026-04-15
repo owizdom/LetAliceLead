@@ -1,14 +1,17 @@
 /**
- * Encrypted keystore for Alice's managed wallets.
+ * Encrypted keystore for the Alice-custodied wallets issued to registered
+ * agents.
  *
- * Each registered agent gets a dedicated Base keypair. We store the private
- * keys encrypted at rest using AES-256-GCM with a master key sourced from
- * ALICE_WALLET_MASTER_KEY (32-byte hex). The keystore is a single JSON file
- * at ~/.config/alice/wallets.enc with one encrypted blob per agentId.
+ * Each registered agent gets a dedicated Base keypair, generated locally by
+ * Alice (not by PayWithLocus). Private keys are stored encrypted at rest using
+ * AES-256-GCM with a master key sourced from ALICE_WALLET_MASTER_KEY (32-byte
+ * hex). The keystore is a single JSON file at ~/.config/alice/wallets.enc with
+ * one encrypted blob per agentId. Alice — not the borrower — controls the keys.
  *
- * Demo-grade: suitable for a hackathon. Production would use an HSM/KMS
- * and per-agent key rotation. Master key MUST be set in production; a
- * warning-banner is emitted if the env var is missing.
+ * Demo-grade: suitable for a hackathon. Production would use an HSM/KMS,
+ * per-agent key rotation, and ideally migration to a true non-custodial
+ * subwallet primitive once one is available. Master key MUST be set in
+ * production; a warning-banner is emitted if the env var is missing.
  */
 
 import crypto from 'crypto';

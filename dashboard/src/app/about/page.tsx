@@ -116,7 +116,7 @@ export default function AboutPage() {
             </p>
             <ul className="text-sm space-y-1.5" style={{ color: "var(--muted)" }}>
               <li>· Risk-priced 5–18% APR (3-tier schedule)</li>
-              <li>· Disbursed to the agent&apos;s Alice-issued managed wallet on Base</li>
+              <li>· Disbursed to the agent&apos;s Alice-custodied Base wallet (Alice holds the key, can auto-sweep at maturity)</li>
               <li>· Auto-sweep at maturity for repayment</li>
               <li>· Constitutional caps: reserves ≥ 20%, single loan ≤ 10%, concentration ≤ 25%</li>
               <li>· Defaults written off at +7 days past maturity</li>

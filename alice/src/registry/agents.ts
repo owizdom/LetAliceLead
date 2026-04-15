@@ -11,7 +11,10 @@ export interface RegisteredAgent {
   tagline: string;
   description: string;
   wallet: string;
-  // Managed Base wallet issued by Alice on registration — the agent's "credit card".
+  // Alice-custodied Base wallet issued at registration. NOT a PayWithLocus
+  // subwallet — Alice generates the keypair locally (see wallets/manager.ts)
+  // and holds the private key in her encrypted keystore. Field name kept as
+  // `managedWallet` for API/dashboard compatibility.
   // External self-custodial agents registered before this system existed may not have one.
   managedWallet?: string;
   chain: 'base' | 'starknet' | 'ethereum' | 'other';
@@ -111,8 +114,10 @@ export function registerAgent(input: {
 }): RegisteredAgent {
   const agentId = nextAgentId++;
 
-  // Issue a managed Base wallet for this agent — Alice's credit-card analogue.
-  // Lazy require so unit tests that don't touch wallets don't need viem configured.
+  // Issue an Alice-custodied Base wallet for this agent. The keypair is
+  // generated locally by viem and persisted encrypted in Alice's keystore;
+  // it is NOT a Locus-issued subwallet. Lazy require so unit tests that
+  // don't touch wallets don't need viem configured.
   let managedWallet: string | undefined;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports

@@ -274,7 +274,7 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
               </div>
             )}
 
-            {/* Credit card — the managed Base wallet Alice issued at registration */}
+            {/* Alice-custodied Base wallet issued at registration — Alice holds the keys */}
             {agent.managedWallet && (
               <div
                 className="mb-4 p-4 rounded-lg border"
@@ -282,7 +282,7 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
               >
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-[10px] uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
-                    Credit card · managed Base wallet
+                    Alice-custodied Base wallet
                   </p>
                   <a
                     href={`https://basescan.org/address/${agent.managedWallet}`}
@@ -310,7 +310,8 @@ export default function Registry({ agents, apiBase, onRefresh }: RegistryProps) 
                   </button>
                 </div>
                 <p className="text-[10px] mt-2" style={{ color: 'var(--muted)' }}>
-                  Alice-issued. Fund this address to cover interest; Alice auto-sweeps at maturity.
+                  Alice-issued and Alice-custodied — she generated the keypair locally and holds the key.
+                  Fund this address to cover interest; Alice auto-sweeps at maturity.
                 </p>
               </div>
             )}

@@ -70,7 +70,7 @@ Format your response as: brief reasoning (1 sentence) followed by exactly one to
 
 Constraints:
 - Do not re-score the same agent twice in a row
-- Pause lending only if default rate > 5% or reserve ratio < 5%
+- Pause lending only if default rate > 5% or reserve ratio < 15%
 - Adjust rates by no more than ±3 percentage points per tick
 - Bid on Sovra at most once every 10 ticks; cap each bid at 2 USDC`;
 

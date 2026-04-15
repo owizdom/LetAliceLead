@@ -53,8 +53,9 @@ export default function AgentsPage() {
       <section className="mb-12">
         <SectionHeading label="Deploy" title="Register your agent" />
         <p className="text-sm mb-6 max-w-2xl" style={{ color: "var(--muted)" }}>
-          Three commands, in order. Alice mints a managed Base wallet on register, scores
-          you with the 7 Locus APIs, and disburses USDC if approved.
+          Three commands, in order. Alice mints an Alice-custodied Base wallet on register
+          (she holds the key so she can auto-sweep at maturity), scores you with the 7 Locus
+          APIs, and disburses USDC if approved.
         </p>
 
         <div className="space-y-4">

@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { computeCreditScore } from '../../core/creditScoring';
 import { getBorrowerDebt } from '../../core/loanManager';
+import { CreditDataUnavailableError } from '../../locus/scoring-apis';
 import { verifyAgent } from '../middleware/verifyAgent';
 import { serializeBigInts } from '../../utils/crypto';
 
@@ -24,6 +25,14 @@ router.post('/apply', verifyAgent, async (req: Request, res: Response) => {
       creditScore: serializeBigInts(creditScore),
     });
   } catch (err) {
+    if (err instanceof CreditDataUnavailableError) {
+      res.status(503).json({
+        error: 'credit_data_unavailable',
+        factor: err.factor,
+        detail: err.reason,
+      });
+      return;
+    }
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
   }
@@ -55,6 +64,14 @@ router.get('/score/:agentId', async (req: Request, res: Response) => {
       computedAt: creditScore.computedAt,
     });
   } catch (err) {
+    if (err instanceof CreditDataUnavailableError) {
+      res.status(503).json({
+        error: 'credit_data_unavailable',
+        factor: err.factor,
+        detail: err.reason,
+      });
+      return;
+    }
     const message = err instanceof Error ? err.message : 'Unknown error';
     res.status(500).json({ error: message });
   }

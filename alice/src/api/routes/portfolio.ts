@@ -9,6 +9,7 @@ import { getBalance } from '../../locus/adapter';
 import { getActiveLoans } from '../../core/loanManager';
 import { getCachedPrice, getAllCachedPrices } from '../../core/collateralMonitor';
 import { getAllAgents } from '../../registry/agents';
+import { ANCHOR_DISBURSEMENTS, asDisbursementRecord, DisbursementRecord } from '../../locus/anchorDisbursements';
 
 const router = Router();
 const startTime = Date.now();
@@ -100,48 +101,13 @@ router.get('/metrics', (_req: Request, res: Response) => {
   res.json(serializeBigInts(metrics));
 });
 
-// Anchor disbursements — Alice's first 3 real on-chain loans to bobIsAlive.
-// Locus's /pay/transactions only returns the most-recent 200 txs and the
-// procurement + heartbeat spam pushes older loans off the window. These
-// hashes are verifiable on BaseScan and remain truth regardless of what
-// Locus's pagination shows. The endpoint merges these with whatever Locus
-// currently surfaces, deduped by tx hash.
-const ANCHOR_DISBURSEMENTS = [
-  {
-    id: 'anchor-0x8d3af51d',
-    amountUsdc: 0.15,
-    memo: 'LetAliceLead Loan (external): 0.150000 USDC @ 10% APR for 1d to agent #2',
-    toAddress: '0x4d8df94a00d8f267ceed9eacbde905928b0afcd8',
-    createdAt: '2026-04-14T14:38:00.000Z',
-    txHash: '0x8d3af51d58b3011490ebbc4a0dd231110c63e11fab484cce4795938cbc679d3b',
-    basescanUrl: 'https://basescan.org/tx/0x8d3af51d58b3011490ebbc4a0dd231110c63e11fab484cce4795938cbc679d3b',
-  },
-  {
-    id: 'anchor-0x33e789fe',
-    amountUsdc: 0.10,
-    memo: 'LetAliceLead Loan (external): 0.100000 USDC @ 10% APR for 1d to agent #2',
-    toAddress: '0x4d8df94a00d8f267ceed9eacbde905928b0afcd8',
-    createdAt: '2026-04-14T15:43:54.000Z',
-    txHash: '0x33e789fe819a4c497c1c7d429b37a93166c09ebe4aa3a963c624ad81c993b5b1',
-    basescanUrl: 'https://basescan.org/tx/0x33e789fe819a4c497c1c7d429b37a93166c09ebe4aa3a963c624ad81c993b5b1',
-  },
-  {
-    id: 'anchor-0x53490f8f',
-    amountUsdc: 0.05,
-    memo: 'LetAliceLead Loan (external): 0.050000 USDC @ 10% APR for 1d to agent #2',
-    toAddress: '0x4d8df94a00d8f267ceed9eacbde905928b0afcd8',
-    createdAt: '2026-04-14T15:47:28.000Z',
-    txHash: '0x53490f8f27cc155616e6dea68278cb34055b523272b10e1b06dfdd24cad551ea',
-    basescanUrl: 'https://basescan.org/tx/0x53490f8f27cc155616e6dea68278cb34055b523272b10e1b06dfdd24cad551ea',
-  },
-];
-
 // GET /api/portfolio/disbursements — recent CONFIRMED loan disbursements
-// pulled from Locus's transaction history, MERGED with anchor disbursements
-// (Alice's first 3 on-chain loans). Locus's tx history caps at 200 most-recent
-// records; anchors guarantee the historical proof remains visible regardless.
+// pulled from Locus's transaction history, MERGED with the anchor
+// disbursements imported from anchorDisbursements.ts (single source of truth).
+// Locus's tx history caps at 200 most-recent records; anchors guarantee the
+// historical proof remains visible regardless of pagination.
 router.get('/disbursements', async (_req: Request, res: Response) => {
-  let live: typeof ANCHOR_DISBURSEMENTS = [];
+  let live: DisbursementRecord[] = [];
   try {
     const { LOCUS_API_KEY, LOCUS_API_BASE } = process.env;
     if (LOCUS_API_KEY) {
@@ -187,7 +153,9 @@ router.get('/disbursements', async (_req: Request, res: Response) => {
 
   // Merge: live first (newest), then anchors not already in live (deduped by tx hash)
   const liveHashes = new Set(live.map((d) => d.txHash).filter(Boolean));
-  const anchorsNotInLive = ANCHOR_DISBURSEMENTS.filter((a) => !liveHashes.has(a.txHash));
+  const anchorsNotInLive = ANCHOR_DISBURSEMENTS
+    .filter((a) => !liveHashes.has(a.txHash))
+    .map(asDisbursementRecord);
   const merged = [...live, ...anchorsNotInLive].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );

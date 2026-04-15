@@ -5,6 +5,8 @@ import { getTreasury, deployCapital, returnCapital, writeOffCapital, recordInter
 import { transferUSDC, getOnChainHash } from '../locus/adapter';
 import { auditLog } from '../locus/audit';
 import { logger } from '../utils/logger';
+import { ANCHOR_DISBURSEMENTS } from '../locus/anchorDisbursements';
+import { CreditDataUnavailableError } from '../locus/scoring-apis';
 import { generateLoanId, serializeBigInts } from '../utils/crypto';
 import { calculateInterest, nowTimestamp, daysToMs, formatUSDC } from '../utils/math';
 import { homedir } from 'os';
@@ -110,41 +112,12 @@ export async function syncHistoricalDisbursements(): Promise<{ imported: number;
 
   let imported = 0;
 
-  // Anchor the 3 historical real loans so the loan book is never empty
+  // Re-import the historical anchor loans (single source of truth in
+  // alice/src/locus/anchorDisbursements.ts) so the loan book is never empty
   // even if Locus tx history has rolled them off the 200-tx window.
-  // Same on-chain truth as the disbursement anchors in portfolio.ts —
-  // these are confirmed BaseScan transfers, baked in so the dashboard
-  // surface is durable across container restarts and Locus pagination.
-  const ANCHOR_LOANS: Array<{
-    locusTxId: string; txHash: string; amountUsdc: number;
-    apr: number; termDays: number; agentId: number; toAddress: string;
-    createdAtIso: string;
-  }> = [
-    {
-      locusTxId: '486e98b7-1dba-4977-aa4a-1ca7d01a1b67',
-      txHash: '0x8d3af51d58b3011490ebbc4a0dd231110c63e11fab484cce4795938cbc679d3b',
-      amountUsdc: 0.15, apr: 10, termDays: 1, agentId: 2,
-      toAddress: '0x4d8df94a00d8f267ceed9eacbde905928b0afcd8',
-      createdAtIso: '2026-04-14T14:38:00.000Z',
-    },
-    {
-      locusTxId: '448f1c2e-2535-4b12-ba7e-11e680791ae5',
-      txHash: '0x33e789fe819a4c497c1c7d429b37a93166c09ebe4aa3a963c624ad81c993b5b1',
-      amountUsdc: 0.10, apr: 10, termDays: 1, agentId: 2,
-      toAddress: '0x4d8df94a00d8f267ceed9eacbde905928b0afcd8',
-      createdAtIso: '2026-04-14T15:43:54.000Z',
-    },
-    {
-      locusTxId: '689ef4cd-2169-4838-8a31-e155d298ea39',
-      txHash: '0x53490f8f27cc155616e6dea68278cb34055b523272b10e1b06dfdd24cad551ea',
-      amountUsdc: 0.05, apr: 10, termDays: 1, agentId: 2,
-      toAddress: '0x4d8df94a00d8f267ceed9eacbde905928b0afcd8',
-      createdAtIso: '2026-04-14T15:47:28.000Z',
-    },
-  ];
   {
     const knownLocusIds = new Set([...loans.values()].map((l) => l.locusTxId || ''));
-    for (const a of ANCHOR_LOANS) {
+    for (const a of ANCHOR_DISBURSEMENTS) {
       if (knownLocusIds.has(a.locusTxId)) continue;
       const principal = BigInt(Math.round(a.amountUsdc * 1e6));
       const interest = BigInt(Math.round(a.amountUsdc * (a.apr / 100) * (a.termDays / 365) * 1e6));
@@ -377,18 +350,46 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
     cached?.scoredAt !== undefined &&
     Date.now() - cached.scoredAt < 30 * 60_000;
 
-  const creditResult = cachedFresh
-    ? {
-        score: {
-          totalScore: cached!.creditScore!,
-          identityScore: cached!.scoreBreakdown?.identityScore ?? 0,
-          reputationScore: cached!.scoreBreakdown?.reputationScore ?? 0,
-          financialScore: cached!.scoreBreakdown?.financialScore ?? 0,
-          reasoning:
-            cached!.scoreBreakdown?.reasoning ?? `Reused cached score from ${new Date(cached!.scoredAt!).toISOString()}.`,
-        },
+  let creditResult;
+  if (cachedFresh) {
+    creditResult = {
+      score: {
+        totalScore: cached!.creditScore!,
+        identityScore: cached!.scoreBreakdown?.identityScore ?? 0,
+        reputationScore: cached!.scoreBreakdown?.reputationScore ?? 0,
+        financialScore: cached!.scoreBreakdown?.financialScore ?? 0,
+        reasoning:
+          cached!.scoreBreakdown?.reasoning ?? `Reused cached score from ${new Date(cached!.scoredAt!).toISOString()}.`,
+      },
+    };
+  } else {
+    try {
+      creditResult = await computeCreditScore(app.agentId, app.agentWallet, existingDebt);
+    } catch (err) {
+      // No silent seed-fallback any more — if a Locus wrapped API failed, the
+      // applicant's score is genuinely unknown and we refuse to invent one.
+      // The borrower is rejected with an honest reason and can re-apply once
+      // the data source recovers.
+      if (err instanceof CreditDataUnavailableError) {
+        await auditLog('loan.rejected', {
+          agentId: app.agentId,
+          reason: 'credit_data_unavailable',
+          factor: err.factor,
+          detail: err.reason.slice(0, 200),
+        });
+        await logger.warn('loan.rejected.credit_data_unavailable', {
+          agentId: app.agentId,
+          factor: err.factor,
+        });
+        return {
+          approved: false,
+          rejectionReason: `Credit scoring unavailable (${err.factor}) — Locus data source temporarily unreachable. Please retry shortly.`,
+          creditScore: 0,
+        };
       }
-    : await computeCreditScore(app.agentId, app.agentWallet, existingDebt);
+      throw err;
+    }
+  }
   const creditScore = creditResult.score.totalScore;
 
   // 2. Check lending halt
@@ -497,9 +498,11 @@ async function _processLoanApplication(app: LoanApplication): Promise<LoanDecisi
     creditScoreAtOrigination: creditScore,
   };
 
-  // 10. Transfer USDC via Locus — route to the managed wallet if the agent has
-  // been issued one. That's the "credit card" destination. Otherwise use the
-  // external wallet the agent registered with (legacy self-custodial path).
+  // 10. Transfer USDC via Locus — route to the Alice-custodied wallet if the
+  // agent has been issued one (Alice generated the keypair locally and holds
+  // the key, so she can sweep at maturity). Otherwise fall back to the
+  // external wallet the agent registered with — that path is truly
+  // non-custodial but Alice cannot auto-sweep, so repayment is borrower-driven.
   const now = nowTimestamp();
   const maturityTimestamp = now + Math.floor(daysToMs(termDays) / 1000);
 

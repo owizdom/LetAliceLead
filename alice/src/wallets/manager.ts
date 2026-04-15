@@ -1,5 +1,13 @@
 /**
- * Public wallet API — issues and operates managed Base wallets for registered agents.
+ * Public wallet API — issues and operates Alice-custodied Base wallets for
+ * registered agents.
+ *
+ * Honesty note: these are NOT PayWithLocus subwallets. Each wallet is a fresh
+ * viem keypair generated locally by Alice (see baseClient.createWallet) and
+ * persisted encrypted in keystore.ts under Alice's own filesystem. Alice holds
+ * the private keys; the borrower agent does not. The wallet model is
+ * "Alice-custodied USDC line" rather than "non-custodial Locus subwallet" —
+ * relevant for any claim about who can move funds at the EOA level.
  */
 
 import { createWallet, readUsdcBalance, sendUsdc } from './baseClient';

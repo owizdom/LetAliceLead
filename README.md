@@ -112,8 +112,8 @@ Honest bounds: the loans are small ($0.05–0.15 USDC) because the treasury was 
 │   ├── GET  /api/pay/txns      ├── POST /wrapped/brave/web-search│
 │   │                           ├── POST /wrapped/perplexity/chat │
 │   Services                    ├── POST /wrapped/coingecko/...   │
-│   ├── POST /x402/agentmail-*  ├── POST /wrapped/tavily/search  │
-│   └── Policy guardrails       └── POST /wrapped/alphavantage/...│
+│   ├── POST /wrapped/agentmail/create-inbox    /tavily/search    │
+│   └── POST /wrapped/agentmail/send-message    /alphavantage/... │
 └──────────────────────────────────────────────────────────────────┘
 ```
 

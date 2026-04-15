@@ -35,10 +35,13 @@ describe('constitution', () => {
     expect(getInterestTier(100)!.aprPercent).toBe(5);
   });
 
-  it('constitution constants match documented values', () => {
-    // Demo-tuned thresholds: see constitution/rules.ts comment.
-    expect(CONSTITUTION.minReserveRatioPct).toBe(5);
-    expect(CONSTITUTION.emergencyReserveRatioPct).toBe(2);
+  it('constitution constants match soul/constitution.md', () => {
+    // Article II §1: reserves >= 20%. Article VII §2: emergency halt at 10%.
+    // Article III §1–2: single loan <= 10%, concentration <= 25%.
+    // Article III §3: min score 40. Article VI §1–3: 3-day grace, 7-day default.
+    // Article VII §1: default rate cap at 5%.
+    expect(CONSTITUTION.minReserveRatioPct).toBe(20);
+    expect(CONSTITUTION.emergencyReserveRatioPct).toBe(10);
     expect(CONSTITUTION.maxConcentrationPct).toBe(25);
     expect(CONSTITUTION.minCreditScore).toBe(40);
     expect(CONSTITUTION.maxDefaultRatePct).toBe(5);
